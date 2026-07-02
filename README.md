@@ -1,4 +1,4 @@
-# LiteLLM Balance Checker
+# CoreLmm
 
 > **Monitor your LiteLLM API key balance, budget, and usage — right from the VS Code status bar.**
 
@@ -14,7 +14,7 @@
 - **Rich tooltip** — hover to see spend, max budget, usage %, user ID, team, models
 - **Budget warnings** — color changes when remaining budget drops below threshold
 - **Multiple auth modes** — API key, admin key, or username/password login
-- **Budget Overview panel** (`Ctrl+Shift+B`) — full dashboard with:
+- **Budget Overview panel** — full dashboard with:
   - Daily spend bar chart (customizable range: 1h / 24h / 7d / 30d / custom)
   - Provider budget bars
   - Model usage donut chart
@@ -30,7 +30,7 @@
 
 ```bash
 # Download from GitHub Releases or build locally, then:
-code --install-extension litellm-balance-checker-0.1.0.vsix
+code --install-extension corelmm-0.1.0.vsix
 ```
 
 Or in VS Code: `Extensions` → `...` → `Install from VSIX...`
@@ -38,12 +38,12 @@ Or in VS Code: `Extensions` → `...` → `Install from VSIX...`
 ### From source
 
 ```bash
-git clone https://github.com/liakos356/litellm-balance-checker.git
-cd litellm-balance-checker
+git clone https://github.com/liakos356/corelmm.git
+cd corelmm
 npm install
 npm run compile
 npx @vscode/vsce package
-code --install-extension litellm-balance-checker-0.1.0.vsix
+code --install-extension corelmm-0.1.0.vsix
 ```
 
 Press `F5` in VS Code for an Extension Development Host window.
@@ -52,19 +52,19 @@ Press `F5` in VS Code for an Extension Development Host window.
 
 ## ⚙️ Settings
 
-Open VS Code settings (`Cmd+,`) and search for `litellm-balance-checker`.
+Open VS Code settings (`Cmd+,`) and search for `corelmm`.
 
 ### Option A: Direct API key
 
 ```json
-"litellm-balance-checker.apiKey": "sk-your-key-here"
+"corelmm.apiKey": "sk-your-key-here"
 ```
 
 ### Option B: Username / Password (auto-login)
 
 ```json
-"litellm-balance-checker.username": "you@company.com",
-"litellm-balance-checker.password": "your-password"
+"corelmm.username": "you@company.com",
+"corelmm.password": "your-password"
 ```
 
 Logs in via `POST /login`, extracts the embedded `sk-...` key from the JWT session.
@@ -72,8 +72,8 @@ Logs in via `POST /login`, extracts the embedded `sk-...` key from the JWT sessi
 ### Option C: Separate admin key
 
 ```json
-"litellm-balance-checker.apiKey": "sk-your-llm-key",
-"litellm-balance-checker.adminKey": "sk-proxy-master-key"
+"corelmm.apiKey": "sk-your-llm-key",
+"corelmm.adminKey": "sk-proxy-master-key"
 ```
 
 ### All settings
@@ -100,13 +100,17 @@ Logs in via `POST /login`, extracts the embedded `sk-...` key from the JWT sessi
 
 | Command | Description |
 |---------|-------------|
-| `LiteLLM: Refresh Balance` | Manually refresh the status bar |
-| `LiteLLM: Show Budget Overview` | Open full dashboard with charts |
-| `LiteLLM: Show Spend Logs` | Open paginated spend logs panel |
-| `LiteLLM: List All Keys` | List all keys with spend & budget |
-| `LiteLLM: Toggle Auto-Refresh` | Enable/disable polling |
-| `LiteLLM: Set Report Duration` | Choose time range for charts (1h/24h/7d/30d/custom) |
-| `LiteLLM: Open Settings` | Jump to extension settings |
+| `CoreLmm: Refresh Balance` | Manually refresh the status bar |
+| `CoreLmm: Show Budget Overview` | Open full dashboard with charts |
+| `CoreLmm: Show Spend Logs` | Open paginated spend logs panel |
+| `CoreLmm: List All Keys` | List all keys with spend & budget |
+| `CoreLmm: Toggle Auto-Refresh` | Enable/disable polling |
+| `CoreLmm: Enable Auto-Refresh` | Start auto-refresh polling |
+| `CoreLmm: Disable Auto-Refresh` | Stop auto-refresh polling |
+| `CoreLmm: Set Report Duration` | Choose time range for charts (1h/24h/7d/30d/custom) |
+| `CoreLmm: Open Settings` | Jump to extension settings |
+| `CoreLmm: Check for Updates` | Check for new version on GitHub |
+| `CoreLmm: About` | Show extension version info |
 
 ---
 

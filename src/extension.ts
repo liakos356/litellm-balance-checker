@@ -128,7 +128,7 @@ interface ExtensionConfig {
 }
 
 function getConfig(): ExtensionConfig {
-  const cfg = vscode.workspace.getConfiguration('litellm-balance-checker');
+  const cfg = vscode.workspace.getConfiguration('corelmm');
   return {
     apiKey: cfg.get<string>('apiKey', ''),
     adminKey: cfg.get<string>('adminKey', ''),
@@ -169,7 +169,7 @@ function getDateRange(duration: ReportDuration, customStart: string, customEnd: 
 
 // ─── API Client ──────────────────────────────────────────────────────────────
 
-class LiteLLMApiClient {
+class CoreLmmApiClient {
   private config: ExtensionConfig;
   private cachedJwtKey: string | undefined;
   private loginPromise: Promise<string | null> | undefined;
@@ -433,6 +433,8 @@ function buildBudgetOverviewHtml(data: {
       }
     }
   }
+  // Fall back to keyInfo.spend if the global report has no data
+  const effectiveTotalSpend = totalSpend > 0 ? totalSpend : (keyInfo?.spend ?? 0);
   const maxDailySpend = Math.max(...dailyData.map(d => d.spend), 1);
 
   // Provider data for charts
@@ -506,7 +508,7 @@ function buildBudgetOverviewHtml(data: {
 </style>
 </head>
 <body>
-<h2>\u{1F4CA} LiteLLM Budget Overview</h2>
+<h2>\u{1F4CA} CoreLmm Budget Overview</h2>
 
 <!-- Key Info Card -->
 <div class="card">
@@ -555,7 +557,7 @@ function buildBudgetOverviewHtml(data: {
   ${reportError ? `<div class="error-box">\u26A0 ${escapeHtml(reportError)}</div>` : ''}
   ${globalReport.length > 0 ? `
   <div class="grid" style="margin-bottom:12px">
-    <div class="stat"><div class="stat-value">${usd(totalSpend)}</div><div class="stat-label">Total 7d Spend</div></div>
+    <div class="stat"><div class="stat-value">${usd(effectiveTotalSpend)}</div><div class="stat-label">Total 7d Spend</div></div>
     <div class="stat"><div class="stat-value">${totalRequests.toLocaleString()}</div><div class="stat-label">Requests</div></div>
   </div>
   <div class="chart-row">${dailyChart}</div>` : '<p style="opacity:.6">No global spend data.</p>'}
@@ -590,7 +592,7 @@ ${modelChartData.length > 0 ? `
   </tr>`).join('')}</tbody></table>` : '<p style="opacity:.6">No recent spend logs.</p>'}
 </div>
 
-<div class="footer">LiteLLM Balance Checker \u00B7 Total spend: ${usd(totalSpend)} \u00B7 ${providerCount} provider(s) \u00B7 ${globalReport.length} day(s) \u00B7 ${new Date().toLocaleString()}</div>
+<div class="footer">CoreLmm \u00B7 Total spend: ${usd(effectiveTotalSpend)} \u00B7 ${providerCount} provider(s) \u00B7 ${globalReport.length} day(s) \u00B7 ${new Date().toLocaleString()}</div>
 </body>
 </html>`;
 }
@@ -619,7 +621,7 @@ function buildSpendLogsHtml(logs: SpendLogEntry[], error: string | null): string
 </style>
 </head>
 <body>
-<h2>\uD83D\uDCDD LiteLLM Spend Logs</h2>
+<h2>\uD83D\uDCDD CoreLmm Spend Logs</h2>
 ${error ? `<div class="error-box">\u26A0 ${escapeHtml(error)}</div>` : ''}
 ${logs.length > 0 ? `
 <div class="summary">
@@ -665,7 +667,7 @@ function buildKeyListHtml(keys: KeyListItem[], error: string | null): string {
 </style>
 </head>
 <body>
-<h2>\u{1F511} LiteLLM Keys</h2>
+<h2>\u{1F511} CoreLmm Keys</h2>
 ${error ? `<div class="error-box">\u26A0 ${escapeHtml(error)}</div>` : ''}
 ${keys.length > 0 ? `<p>${keys.length} key(s) found.</p>
 <table><thead><tr><th>Alias</th><th>Spend</th><th>Max Budget</th><th>Used</th><th>User</th><th>Team</th></tr></thead>
@@ -693,7 +695,7 @@ ${keys.length > 0 ? `<p>${keys.length} key(s) found.</p>
 class BalanceStatusBarManager {
   private statusBarItem: vscode.StatusBarItem;
   private timer: NodeJS.Timeout | undefined;
-  private client: LiteLLMApiClient;
+  private client: CoreLmmApiClient;
   private config: ExtensionConfig;
   private disposables: vscode.Disposable[] = [];
   private budgetOverviewPanel: vscode.WebviewPanel | undefined;
@@ -702,13 +704,13 @@ class BalanceStatusBarManager {
 
   constructor() {
     this.config = getConfig();
-    this.client = new LiteLLMApiClient(this.config);
+    this.client = new CoreLmmApiClient(this.config);
 
     this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    this.statusBarItem.name = 'LiteLLM Balance';
-    this.statusBarItem.command = 'litellm-balance-checker.refresh';
-    this.statusBarItem.tooltip = 'LiteLLM Balance Checker \u2014 Click to refresh';
-    this.statusBarItem.text = '$(coin) LiteLLM: ...';
+    this.statusBarItem.name = 'CoreLmm';
+    this.statusBarItem.command = 'corelmm.refresh';
+    this.statusBarItem.tooltip = 'CoreLmm \u2014 Click to refresh';
+    this.statusBarItem.text = '$(coin) CoreLmm: ...';
     this.statusBarItem.show();
     this.disposables.push(this.statusBarItem);
 
@@ -718,32 +720,50 @@ class BalanceStatusBarManager {
 
   private registerCommands(): void {
     this.disposables.push(
-      vscode.commands.registerCommand('litellm-balance-checker.refresh', () => {
+      vscode.commands.registerCommand('corelmm.refresh', () => {
         vscode.window.withProgress(
-          { location: vscode.ProgressLocation.Window, title: 'Checking LiteLLM balance\u2026' },
+          { location: vscode.ProgressLocation.Window, title: 'Checking CoreLmm balance\u2026' },
           async () => { await this.refresh(); }
         );
       }),
-      vscode.commands.registerCommand('litellm-balance-checker.openSettings', () => {
-        vscode.commands.executeCommand('workbench.action.openSettings', '@ext:litellm-tools.litellm-balance-checker');
+      vscode.commands.registerCommand('corelmm.openSettings', () => {
+        vscode.commands.executeCommand('workbench.action.openSettings', '@ext:litellm-tools.corelmm');
       }),
-      vscode.commands.registerCommand('litellm-balance-checker.toggleAutoRefresh', () => {
-        if (this.timer) { this.stopAutoRefresh(); vscode.window.showInformationMessage('LiteLLM auto-refresh disabled'); }
-        else { this.startAutoRefresh(); vscode.window.showInformationMessage(`LiteLLM auto-refresh enabled (every ${this.config.refreshInterval}s)`); }
+      vscode.commands.registerCommand('corelmm.toggleAutoRefresh', () => {
+        if (this.timer) { this.stopAutoRefresh(); vscode.window.showInformationMessage('CoreLmm auto-refresh disabled'); }
+        else { this.startAutoRefresh(); vscode.window.showInformationMessage(`CoreLmm auto-refresh enabled (every ${this.config.refreshInterval}s)`); }
       }),
-      vscode.commands.registerCommand('litellm-balance-checker.showBudgetOverview', () => this.openBudgetOverview()),
-      vscode.commands.registerCommand('litellm-balance-checker.showSpendLogs', () => this.openSpendLogs()),
-      vscode.commands.registerCommand('litellm-balance-checker.listKeys', () => this.openKeyList()),
-      vscode.commands.registerCommand('litellm-balance-checker.setReportDuration', () => this.pickReportDuration())
+      vscode.commands.registerCommand('corelmm.showBudgetOverview', () => this.openBudgetOverview()),
+      vscode.commands.registerCommand('corelmm.showSpendLogs', () => this.openSpendLogs()),
+      vscode.commands.registerCommand('corelmm.listKeys', () => this.openKeyList()),
+      vscode.commands.registerCommand('corelmm.setReportDuration', () => this.pickReportDuration()),
+      vscode.commands.registerCommand('corelmm.enableAutoRefresh', () => {
+        this.startAutoRefresh();
+        vscode.window.showInformationMessage(`CoreLmm auto-refresh enabled (every ${this.config.refreshInterval}s)`);
+      }),
+      vscode.commands.registerCommand('corelmm.disableAutoRefresh', () => {
+        this.stopAutoRefresh();
+        vscode.window.showInformationMessage('CoreLmm auto-refresh disabled');
+      }),
+      vscode.commands.registerCommand('corelmm.showAbout', () => {
+        vscode.window.showInformationMessage(
+          `CoreLmm v${CURRENT_VERSION} — Monitor LiteLLM API key balances and usage.`,
+          'Open Settings'
+        ).then((sel) => {
+          if (sel === 'Open Settings') {
+            vscode.commands.executeCommand('workbench.action.openSettings', '@ext:litellm-tools.corelmm');
+          }
+        });
+      })
     );
   }
 
   private watchConfigChanges(): void {
     this.disposables.push(
       vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('litellm-balance-checker')) {
+        if (e.affectsConfiguration('corelmm')) {
           this.config = getConfig();
-          this.client = new LiteLLMApiClient(this.config);
+          this.client = new CoreLmmApiClient(this.config);
           this.stopAutoRefresh();
           if (this.config.refreshInterval > 0) this.startAutoRefresh();
           this.refresh();
@@ -787,7 +807,7 @@ class BalanceStatusBarManager {
   private async openBudgetOverview(): Promise<void> {
     if (this.budgetOverviewPanel) { this.budgetOverviewPanel.reveal(vscode.ViewColumn.One); return; }
     this.budgetOverviewPanel = vscode.window.createWebviewPanel(
-      'litellmBudgetOverview', 'LiteLLM Budget Overview', vscode.ViewColumn.One, { enableScripts: false }
+      'corelmmBudgetOverview', 'CoreLmm Budget Overview', vscode.ViewColumn.One, { enableScripts: false }
     );
     this.budgetOverviewPanel.onDidDispose(() => { this.budgetOverviewPanel = undefined; });
     this.budgetOverviewPanel.webview.html = '<html><body style="padding:20px;text-align:center"><p>Loading\u2026</p></body></html>';
@@ -799,7 +819,7 @@ class BalanceStatusBarManager {
     };
 
     await vscode.window.withProgress(
-      { location: vscode.ProgressLocation.Window, title: 'Fetching LiteLLM budget data\u2026' },
+      { location: vscode.ProgressLocation.Window, title: 'Fetching CoreLmm budget data\u2026' },
       async () => { data = await this.fetchBudgetData(this.config.reportDuration); }
     );
     if (!this.budgetOverviewPanel) return;
@@ -838,10 +858,10 @@ class BalanceStatusBarManager {
       { placeHolder: 'Select report duration for Budget Overview' }
     );
     if (!pick) return;
-    const cfg = vscode.workspace.getConfiguration('litellm-balance-checker');
+    const cfg = vscode.workspace.getConfiguration('corelmm');
     await cfg.update('reportDuration', pick.value, vscode.ConfigurationTarget.Global);
     this.config = getConfig();
-    this.client = new LiteLLMApiClient(this.config);
+    this.client = new CoreLmmApiClient(this.config);
     if (this.budgetOverviewPanel) {
       await this.refreshBudgetOverview();
     } else {
@@ -854,7 +874,7 @@ class BalanceStatusBarManager {
   private async openSpendLogs(): Promise<void> {
     if (this.spendLogsPanel) { this.spendLogsPanel.reveal(vscode.ViewColumn.Beside); return; }
     this.spendLogsPanel = vscode.window.createWebviewPanel(
-      'litellmSpendLogs', 'LiteLLM Spend Logs', vscode.ViewColumn.Beside, { enableScripts: false }
+      'corelmmSpendLogs', 'CoreLmm Spend Logs', vscode.ViewColumn.Beside, { enableScripts: false }
     );
     this.spendLogsPanel.onDidDispose(() => { this.spendLogsPanel = undefined; });
     this.spendLogsPanel.webview.html = '<html><body style="padding:20px;text-align:center"><p>Loading\u2026</p></body></html>';
@@ -873,7 +893,7 @@ class BalanceStatusBarManager {
   private async openKeyList(): Promise<void> {
     if (this.keyListPanel) { this.keyListPanel.reveal(vscode.ViewColumn.Beside); return; }
     this.keyListPanel = vscode.window.createWebviewPanel(
-      'litellmKeyList', 'LiteLLM Keys', vscode.ViewColumn.Beside, { enableScripts: false }
+      'corelmmKeyList', 'CoreLmm Keys', vscode.ViewColumn.Beside, { enableScripts: false }
     );
     this.keyListPanel.onDidDispose(() => { this.keyListPanel = undefined; });
     this.keyListPanel.webview.html = '<html><body style="padding:20px;text-align:center"><p>Loading\u2026</p></body></html>';
@@ -916,7 +936,7 @@ class BalanceStatusBarManager {
   }
 
   private buildTooltip(data: KeyInfoResponse): string {
-    const lines: string[] = ['**LiteLLM Balance Checker**', ''];
+    const lines: string[] = ['**CoreLmm**', ''];
     const alias = data.key_alias || data.key_name || data.key || 'N/A';
     lines.push(`**Key:** \`${alias}\``);
     const spend = data.spend ?? 0;
@@ -959,21 +979,21 @@ class BalanceStatusBarManager {
       // If management endpoints are blocked, try to at least show models
       if (msg.includes('lacks management permissions')) {
         const models = await this.client.fetchModels();
-        this.statusBarItem.text = '$(key) LiteLLM: LLM key (limited)';
+        this.statusBarItem.text = '$(key) CoreLmm: LLM key (limited)';
         const modelList = models.length > 0 ? `\n\n**Accessible models:** ${models.slice(0, 6).join(', ')}${models.length > 6 ? ` +${models.length - 6}` : ''}` : '';
         this.statusBarItem.tooltip =
-          `**LiteLLM Balance Checker**\n\n` +
+          `**CoreLmm**\n\n` +
           `⚠️ This key cannot access management endpoints.\n` +
           `To see balance/budget, set an admin key in the settings.\n` +
           `Or use "keyToQuery" with this key + adminKey as proxy master.` +
           modelList;
         this.statusBarItem.color = new vscode.ThemeColor('statusBarItem.warningForeground');
       } else {
-        this.statusBarItem.text = '$(error) LiteLLM: Error';
-        this.statusBarItem.tooltip = `LiteLLM Balance Checker \u2014 Error: ${msg}`;
+        this.statusBarItem.text = '$(error) CoreLmm: Error';
+        this.statusBarItem.tooltip = `CoreLmm \u2014 Error: ${msg}`;
         this.statusBarItem.color = new vscode.ThemeColor('statusBarItem.errorForeground');
       }
-      if (!this.timer) vscode.window.showWarningMessage(`LiteLLM Balance: ${msg}`);
+      if (!this.timer) vscode.window.showWarningMessage(`CoreLmm: ${msg}`);
     }
   }
 
@@ -1010,14 +1030,14 @@ let manager: BalanceStatusBarManager | undefined;
 
 // ─── Update Checker ─────────────────────────────────────────────────────────
 
-const EXTENSION_ID = 'litellm-tools.litellm-balance-checker';
-const GITHUB_REPO = 'liakos356/litellm-balance-checker';
+const EXTENSION_ID = 'litellm-tools.corelmm';
+const GITHUB_REPO = 'liakos356/corelmm';
 const CURRENT_VERSION = '0.1.0';
 
 async function checkForUpdates(showUpToDate = false): Promise<void> {
   try {
     const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
-      headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'litellm-balance-checker-vscode' },
+      headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'corelmm-vscode' },
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) return;
@@ -1029,7 +1049,7 @@ async function checkForUpdates(showUpToDate = false): Promise<void> {
       const vsixAsset = data.assets?.find((a) => a.name.endsWith('.vsix'));
       const actions = vsixAsset ? ['Update & Reload', 'Download', 'Dismiss'] : ['Download', 'Dismiss'];
       const action = await vscode.window.showInformationMessage(
-        `LiteLLM Balance Checker v${latestTag} available! (current: v${CURRENT_VERSION})`,
+        `CoreLmm v${latestTag} available! (current: v${CURRENT_VERSION})`,
         ...actions
       );
 
@@ -1041,7 +1061,7 @@ async function checkForUpdates(showUpToDate = false): Promise<void> {
             const dl = await fetch(vsixAsset.browser_download_url);
             if (!dl.ok) throw new Error('Download failed');
             const buf = Buffer.from(await dl.arrayBuffer());
-            const tmpPath = `${os.tmpdir()}/litellm-balance-checker-${latestTag}.vsix`;
+            const tmpPath = `${os.tmpdir()}/corelmm-${latestTag}.vsix`;
             fs.writeFileSync(tmpPath, buf);
             // Install via VS Code's internal command
             await vscode.commands.executeCommand('workbench.extensions.installExtension', vscode.Uri.file(tmpPath));
@@ -1055,7 +1075,7 @@ async function checkForUpdates(showUpToDate = false): Promise<void> {
         vscode.env.openExternal(vscode.Uri.parse(data.html_url));
       }
     } else if (showUpToDate) {
-      vscode.window.showInformationMessage(`LiteLLM Balance Checker is up to date (v${CURRENT_VERSION}).`);
+      vscode.window.showInformationMessage(`CoreLmm is up to date (v${CURRENT_VERSION}).`);
     }
   } catch {
     if (showUpToDate) {
@@ -1079,11 +1099,11 @@ function compareVersions(a: string, b: string): number {
 // ─── Activation ──────────────────────────────────────────────────────────────
 
 export function activate(context: vscode.ExtensionContext): void {
-  console.log('LiteLLM Balance Checker activating...');
+  console.log('CoreLmm activating...');
 
   // Register update command
   context.subscriptions.push(
-    vscode.commands.registerCommand('litellm-balance-checker.checkForUpdates', () => checkForUpdates(true))
+    vscode.commands.registerCommand('corelmm.checkForUpdates', () => checkForUpdates(true))
   );
 
   manager = new BalanceStatusBarManager();
@@ -1092,11 +1112,11 @@ export function activate(context: vscode.ExtensionContext): void {
   const config = getConfig();
   if (!config.apiKey && !config.adminKey && !config.username) {
     vscode.window.showInformationMessage(
-      'LiteLLM Balance Checker: Configure your API key in settings to get started.',
+      'CoreLmm: Configure your API key in settings to get started.',
       'Open Settings'
     ).then((sel) => {
       if (sel === 'Open Settings') {
-        vscode.commands.executeCommand('workbench.action.openSettings', '@ext:litellm-tools.litellm-balance-checker');
+        vscode.commands.executeCommand('workbench.action.openSettings', '@ext:litellm-tools.corelmm');
       }
     });
   }
@@ -1104,10 +1124,10 @@ export function activate(context: vscode.ExtensionContext): void {
   // Check for updates silently on startup (once per session)
   setTimeout(() => checkForUpdates(), 5000);
 
-  console.log('LiteLLM Balance Checker activated');
+  console.log('CoreLmm activated');
 }
 
 export function deactivate(): void {
   if (manager) { manager.dispose(); manager = undefined; }
-  console.log('LiteLLM Balance Checker deactivated');
+  console.log('CoreLmm deactivated');
 }

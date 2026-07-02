@@ -1,14 +1,14 @@
 {
-  "name": "litellm-balance-checker",
-  "displayName": "LiteLLM Balance Checker",
-  "description": "Check your LiteLLM API key balance and usage directly from VS Code status bar",
+  "name": "corelmm",
+  "displayName": "CoreLmm",
+  "description": "Monitor LiteLLM API key balances, budgets, and usage directly from VS Code status bar",
   "version": "0.1.0",
   "publisher": "litellm-tools",
   "icon": "icon.png",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/liakos356/litellm-balance-checker.git"
+    "url": "https://github.com/liakos356/corelmm.git"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -23,98 +23,116 @@
   "contributes": {
     "commands": [
       {
-        "command": "litellm-balance-checker.refresh",
-        "title": "LiteLLM: Refresh Balance"
+        "command": "corelmm.refresh",
+        "title": "CoreLmm: Refresh Balance"
       },
       {
-        "command": "litellm-balance-checker.openSettings",
-        "title": "LiteLLM: Open Balance Checker Settings"
+        "command": "corelmm.openSettings",
+        "title": "CoreLmm: Open Settings"
       },
       {
-        "command": "litellm-balance-checker.toggleAutoRefresh",
-        "title": "LiteLLM: Toggle Auto-Refresh"
+        "command": "corelmm.toggleAutoRefresh",
+        "title": "CoreLmm: Toggle Auto-Refresh"
       },
       {
-        "command": "litellm-balance-checker.showBudgetOverview",
-        "title": "LiteLLM: Show Budget Overview"
+        "command": "corelmm.enableAutoRefresh",
+        "title": "CoreLmm: Enable Auto-Refresh"
       },
       {
-        "command": "litellm-balance-checker.showSpendLogs",
-        "title": "LiteLLM: Show Spend Logs"
+        "command": "corelmm.disableAutoRefresh",
+        "title": "CoreLmm: Disable Auto-Refresh"
       },
       {
-        "command": "litellm-balance-checker.listKeys",
-        "title": "LiteLLM: List All Keys"
+        "command": "corelmm.showBudgetOverview",
+        "title": "CoreLmm: Show Budget Overview"
       },
       {
-        "command": "litellm-balance-checker.setReportDuration",
-        "title": "LiteLLM: Set Report Duration"
+        "command": "corelmm.showSpendLogs",
+        "title": "CoreLmm: Show Spend Logs"
       },
       {
-        "command": "litellm-balance-checker.checkForUpdates",
-        "title": "LiteLLM: Check for Updates"
+        "command": "corelmm.listKeys",
+        "title": "CoreLmm: List All Keys"
+      },
+      {
+        "command": "corelmm.setReportDuration",
+        "title": "CoreLmm: Set Report Duration"
+      },
+      {
+        "command": "corelmm.checkForUpdates",
+        "title": "CoreLmm: Check for Updates"
+      },
+      {
+        "command": "corelmm.showAbout",
+        "title": "CoreLmm: About"
       }
     ],
     "configuration": {
-      "title": "LiteLLM Balance Checker",
+      "title": "CoreLmm",
       "properties": {
-        "litellm-balance-checker.apiKey": {
+        "corelmm.apiKey": {
           "type": "string",
           "default": "",
           "description": "Your LiteLLM API key to check balance for. If empty, the Authorization header will use the key being queried."
         },
-        "litellm-balance-checker.adminKey": {
+        "corelmm.adminKey": {
           "type": "string",
           "default": "",
           "description": "Admin/proxy master key (if required) for querying key info. Leave empty if using the same key as apiKey."
         },
-        "litellm-balance-checker.username": {
+        "corelmm.username": {
           "type": "string",
           "default": "",
           "description": "LiteLLM UI username (for login-based auth). The extension will login and extract the embedded API key from the session."
         },
-        "litellm-balance-checker.password": {
+        "corelmm.password": {
           "type": "string",
           "default": "",
           "description": "LiteLLM UI password (for login-based auth). Stored in VS Code secret storage."
         },
-        "litellm-balance-checker.endpoint": {
+        "corelmm.endpoint": {
           "type": "string",
           "default": "http://core.llm",
           "description": "The LiteLLM proxy endpoint URL (e.g., http://localhost:4000 or http://core.llm)"
         },
-        "litellm-balance-checker.refreshInterval": {
+        "corelmm.refreshInterval": {
           "type": "number",
           "default": 60,
           "minimum": 5,
           "description": "Auto-refresh interval in seconds (minimum 5). Set to 0 to disable auto-refresh."
         },
-        "litellm-balance-checker.showKeyAlias": {
+        "corelmm.showKeyAlias": {
           "type": "boolean",
           "default": true,
           "description": "Show the key alias/name in the status bar next to the balance"
         },
-        "litellm-balance-checker.showSpendLogs": {
+        "corelmm.showSpendLogs": {
           "type": "boolean",
           "default": false,
           "description": "Also display recent spend in the status bar (uses /spend/logs)"
         },
-        "litellm-balance-checker.budgetWarningThreshold": {
+        "corelmm.budgetWarningThreshold": {
           "type": "number",
           "default": 20,
           "minimum": 0,
           "maximum": 100,
           "description": "Warning threshold percentage. When remaining budget falls below this % of max_budget, show a warning."
         },
-        "litellm-balance-checker.keyToQuery": {
+        "corelmm.keyToQuery": {
           "type": "string",
           "default": "",
           "description": "Optional: Query a specific key (different from the auth key). If empty, queries the key used for authentication."
         },
-        "litellm-balance-checker.reportDuration": {
+        "corelmm.reportDuration": {
           "type": "string",
           "default": "7d",
-          "enum": ["1h", "24h", "7d", "30d", "custom"],
+          "enum": [
+            "1h",
+            "24h",
+            "7d",
+            "30d",
+            "custom"
+          ],
           "enumDescriptions": [
             "Last hour",
             "Last 24 hours",
@@ -124,12 +142,12 @@
           ],
           "description": "Time range for the Budget Overview spend report."
         },
-        "litellm-balance-checker.reportCustomStart": {
+        "corelmm.reportCustomStart": {
           "type": "string",
           "default": "",
           "description": "Custom start date (YYYY-MM-DD) for the spend report when reportDuration=custom."
         },
-        "litellm-balance-checker.reportCustomEnd": {
+        "corelmm.reportCustomEnd": {
           "type": "string",
           "default": "",
           "description": "Custom end date (YYYY-MM-DD) for the spend report when reportDuration=custom."
@@ -145,11 +163,12 @@
     "lint": "eslint src --ext ts"
   },
   "devDependencies": {
-    "@types/vscode": "^1.85.0",
     "@types/node": "^20.0.0",
-    "typescript": "^5.3.0",
-    "eslint": "^8.56.0",
+    "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.19.0",
-    "@typescript-eslint/parser": "^6.19.0"
+    "@typescript-eslint/parser": "^6.19.0",
+    "@vscode/vsce": "^3.9.2",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.0"
   }
 }

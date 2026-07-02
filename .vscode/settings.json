@@ -1,11 +1,11 @@
 {
   // Option A: Direct API key
-  // "litellm-balance-checker.apiKey": "sk-your-key-here",
+  // "corelmm.apiKey": "sk-your-key-here",
   // Option B: Username/password (auto-extracts session key)
-  // "litellm-balance-checker.username": "your@email.com",
-  // "litellm-balance-checker.password": "your-password",
-  "litellm-balance-checker.endpoint": "http://core.llm",
-  "litellm-balance-checker.refreshInterval": 60,
-  "litellm-balance-checker.showKeyAlias": true,
-  "litellm-balance-checker.budgetWarningThreshold": 20
+  // "corelmm.username": "your@email.com",
+  // "corelmm.password": "your-password",
+  "corelmm.endpoint": "http://core.llm",
+  "corelmm.refreshInterval": 60,
+  "corelmm.showKeyAlias": true,
+  "corelmm.budgetWarningThreshold": 20
 }
