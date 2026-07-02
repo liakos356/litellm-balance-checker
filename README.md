@@ -1,4 +1,4 @@
-# CoreLmm
+# CoreLLM
 
 > **Monitor your LiteLLM API key balance, budget, and usage — right from the VS Code status bar.**
 
@@ -30,7 +30,7 @@
 
 ```bash
 # Download from GitHub Releases or build locally, then:
-code --install-extension corelmm-0.1.0.vsix
+code --install-extension corellm-0.1.0.vsix
 ```
 
 Or in VS Code: `Extensions` → `...` → `Install from VSIX...`
@@ -38,12 +38,12 @@ Or in VS Code: `Extensions` → `...` → `Install from VSIX...`
 ### From source
 
 ```bash
-git clone https://github.com/liakos356/corelmm.git
-cd corelmm
+git clone https://github.com/liakos356/litellm-balance-checker.git
+cd litellm-balance-checker
 npm install
 npm run compile
 npx @vscode/vsce package
-code --install-extension corelmm-0.1.0.vsix
+code --install-extension corellm-0.1.0.vsix
 ```
 
 Press `F5` in VS Code for an Extension Development Host window.
@@ -52,19 +52,19 @@ Press `F5` in VS Code for an Extension Development Host window.
 
 ## ⚙️ Settings
 
-Open VS Code settings (`Cmd+,`) and search for `corelmm`.
+Open VS Code settings (`Cmd+,`) and search for `corellm`.
 
 ### Option A: Direct API key
 
 ```json
-"corelmm.apiKey": "sk-your-key-here"
+"corellm.apiKey": "sk-your-key-here"
 ```
 
 ### Option B: Username / Password (auto-login)
 
 ```json
-"corelmm.username": "you@company.com",
-"corelmm.password": "your-password"
+"corellm.username": "you@company.com",
+"corellm.password": "your-password"
 ```
 
 Logs in via `POST /login`, extracts the embedded `sk-...` key from the JWT session.
@@ -72,8 +72,8 @@ Logs in via `POST /login`, extracts the embedded `sk-...` key from the JWT sessi
 ### Option C: Separate admin key
 
 ```json
-"corelmm.apiKey": "sk-your-llm-key",
-"corelmm.adminKey": "sk-proxy-master-key"
+"corellm.apiKey": "sk-your-llm-key",
+"corellm.adminKey": "sk-proxy-master-key"
 ```
 
 ### All settings
@@ -100,17 +100,17 @@ Logs in via `POST /login`, extracts the embedded `sk-...` key from the JWT sessi
 
 | Command | Description |
 |---------|-------------|
-| `CoreLmm: Refresh Balance` | Manually refresh the status bar |
-| `CoreLmm: Show Budget Overview` | Open full dashboard with charts |
-| `CoreLmm: Show Spend Logs` | Open paginated spend logs panel |
-| `CoreLmm: List All Keys` | List all keys with spend & budget |
-| `CoreLmm: Toggle Auto-Refresh` | Enable/disable polling |
-| `CoreLmm: Enable Auto-Refresh` | Start auto-refresh polling |
-| `CoreLmm: Disable Auto-Refresh` | Stop auto-refresh polling |
-| `CoreLmm: Set Report Duration` | Choose time range for charts (1h/24h/7d/30d/custom) |
-| `CoreLmm: Open Settings` | Jump to extension settings |
-| `CoreLmm: Check for Updates` | Check for new version on GitHub |
-| `CoreLmm: About` | Show extension version info |
+| `CoreLLM: Refresh Balance` | Manually refresh the status bar |
+| `CoreLLM: Show Budget Overview` | Open full dashboard with charts |
+| `CoreLLM: Show Spend Logs` | Open paginated spend logs panel |
+| `CoreLLM: List All Keys` | List all keys with spend & budget |
+| `CoreLLM: Toggle Auto-Refresh` | Enable/disable polling |
+| `CoreLLM: Enable Auto-Refresh` | Start auto-refresh polling |
+| `CoreLLM: Disable Auto-Refresh` | Stop auto-refresh polling |
+| `CoreLLM: Set Report Duration` | Choose time range for charts (1h/24h/7d/30d/custom) |
+| `CoreLLM: Open Settings` | Jump to extension settings |
+| `CoreLLM: Check for Updates` | Check for new version on GitHub |
+| `CoreLLM: About` | Show extension version info |
 
 ---
 

@@ -128,7 +128,7 @@ interface ExtensionConfig {
 }
 
 function getConfig(): ExtensionConfig {
-  const cfg = vscode.workspace.getConfiguration('corelmm');
+  const cfg = vscode.workspace.getConfiguration('corellm');
   return {
     apiKey: cfg.get<string>('apiKey', ''),
     adminKey: cfg.get<string>('adminKey', ''),
@@ -169,7 +169,7 @@ function getDateRange(duration: ReportDuration, customStart: string, customEnd: 
 
 // ─── API Client ──────────────────────────────────────────────────────────────
 
-class CoreLmmApiClient {
+class CoreLLMApiClient {
   private config: ExtensionConfig;
   private cachedJwtKey: string | undefined;
   private loginPromise: Promise<string | null> | undefined;
@@ -508,7 +508,7 @@ function buildBudgetOverviewHtml(data: {
 </style>
 </head>
 <body>
-<h2>\u{1F4CA} CoreLmm Budget Overview</h2>
+<h2>\u{1F4CA} CoreLLM Budget Overview</h2>
 
 <!-- Key Info Card -->
 <div class="card">
@@ -592,7 +592,7 @@ ${modelChartData.length > 0 ? `
   </tr>`).join('')}</tbody></table>` : '<p style="opacity:.6">No recent spend logs.</p>'}
 </div>
 
-<div class="footer">CoreLmm \u00B7 Total spend: ${usd(effectiveTotalSpend)} \u00B7 ${providerCount} provider(s) \u00B7 ${globalReport.length} day(s) \u00B7 ${new Date().toLocaleString()}</div>
+<div class="footer">CoreLLM \u00B7 Total spend: ${usd(effectiveTotalSpend)} \u00B7 ${providerCount} provider(s) \u00B7 ${globalReport.length} day(s) \u00B7 ${new Date().toLocaleString()}</div>
 </body>
 </html>`;
 }
@@ -621,7 +621,7 @@ function buildSpendLogsHtml(logs: SpendLogEntry[], error: string | null): string
 </style>
 </head>
 <body>
-<h2>\uD83D\uDCDD CoreLmm Spend Logs</h2>
+<h2>\uD83D\uDCDD CoreLLM Spend Logs</h2>
 ${error ? `<div class="error-box">\u26A0 ${escapeHtml(error)}</div>` : ''}
 ${logs.length > 0 ? `
 <div class="summary">
@@ -667,7 +667,7 @@ function buildKeyListHtml(keys: KeyListItem[], error: string | null): string {
 </style>
 </head>
 <body>
-<h2>\u{1F511} CoreLmm Keys</h2>
+<h2>\u{1F511} CoreLLM Keys</h2>
 ${error ? `<div class="error-box">\u26A0 ${escapeHtml(error)}</div>` : ''}
 ${keys.length > 0 ? `<p>${keys.length} key(s) found.</p>
 <table><thead><tr><th>Alias</th><th>Spend</th><th>Max Budget</th><th>Used</th><th>User</th><th>Team</th></tr></thead>
@@ -695,7 +695,7 @@ ${keys.length > 0 ? `<p>${keys.length} key(s) found.</p>
 class BalanceStatusBarManager {
   private statusBarItem: vscode.StatusBarItem;
   private timer: NodeJS.Timeout | undefined;
-  private client: CoreLmmApiClient;
+  private client: CoreLLMApiClient;
   private config: ExtensionConfig;
   private disposables: vscode.Disposable[] = [];
   private budgetOverviewPanel: vscode.WebviewPanel | undefined;
@@ -704,13 +704,13 @@ class BalanceStatusBarManager {
 
   constructor() {
     this.config = getConfig();
-    this.client = new CoreLmmApiClient(this.config);
+    this.client = new CoreLLMApiClient(this.config);
 
     this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    this.statusBarItem.name = 'CoreLmm';
-    this.statusBarItem.command = 'corelmm.refresh';
-    this.statusBarItem.tooltip = 'CoreLmm \u2014 Click to refresh';
-    this.statusBarItem.text = '$(coin) CoreLmm: ...';
+    this.statusBarItem.name = 'CoreLLM';
+    this.statusBarItem.command = 'corellm.refresh';
+    this.statusBarItem.tooltip = 'CoreLLM \u2014 Click to refresh';
+    this.statusBarItem.text = '$(coin) CoreLLM: ...';
     this.statusBarItem.show();
     this.disposables.push(this.statusBarItem);
 
@@ -720,38 +720,38 @@ class BalanceStatusBarManager {
 
   private registerCommands(): void {
     this.disposables.push(
-      vscode.commands.registerCommand('corelmm.refresh', () => {
+      vscode.commands.registerCommand('corellm.refresh', () => {
         vscode.window.withProgress(
-          { location: vscode.ProgressLocation.Window, title: 'Checking CoreLmm balance\u2026' },
+          { location: vscode.ProgressLocation.Window, title: 'Checking CoreLLM balance\u2026' },
           async () => { await this.refresh(); }
         );
       }),
-      vscode.commands.registerCommand('corelmm.openSettings', () => {
-        vscode.commands.executeCommand('workbench.action.openSettings', '@ext:litellm-tools.corelmm');
+      vscode.commands.registerCommand('corellm.openSettings', () => {
+        vscode.commands.executeCommand('workbench.action.openSettings', '@ext:litellm-tools.corellm');
       }),
-      vscode.commands.registerCommand('corelmm.toggleAutoRefresh', () => {
-        if (this.timer) { this.stopAutoRefresh(); vscode.window.showInformationMessage('CoreLmm auto-refresh disabled'); }
-        else { this.startAutoRefresh(); vscode.window.showInformationMessage(`CoreLmm auto-refresh enabled (every ${this.config.refreshInterval}s)`); }
+      vscode.commands.registerCommand('corellm.toggleAutoRefresh', () => {
+        if (this.timer) { this.stopAutoRefresh(); vscode.window.showInformationMessage('CoreLLM auto-refresh disabled'); }
+        else { this.startAutoRefresh(); vscode.window.showInformationMessage(`CoreLLM auto-refresh enabled (every ${this.config.refreshInterval}s)`); }
       }),
-      vscode.commands.registerCommand('corelmm.showBudgetOverview', () => this.openBudgetOverview()),
-      vscode.commands.registerCommand('corelmm.showSpendLogs', () => this.openSpendLogs()),
-      vscode.commands.registerCommand('corelmm.listKeys', () => this.openKeyList()),
-      vscode.commands.registerCommand('corelmm.setReportDuration', () => this.pickReportDuration()),
-      vscode.commands.registerCommand('corelmm.enableAutoRefresh', () => {
+      vscode.commands.registerCommand('corellm.showBudgetOverview', () => this.openBudgetOverview()),
+      vscode.commands.registerCommand('corellm.showSpendLogs', () => this.openSpendLogs()),
+      vscode.commands.registerCommand('corellm.listKeys', () => this.openKeyList()),
+      vscode.commands.registerCommand('corellm.setReportDuration', () => this.pickReportDuration()),
+      vscode.commands.registerCommand('corellm.enableAutoRefresh', () => {
         this.startAutoRefresh();
-        vscode.window.showInformationMessage(`CoreLmm auto-refresh enabled (every ${this.config.refreshInterval}s)`);
+        vscode.window.showInformationMessage(`CoreLLM auto-refresh enabled (every ${this.config.refreshInterval}s)`);
       }),
-      vscode.commands.registerCommand('corelmm.disableAutoRefresh', () => {
+      vscode.commands.registerCommand('corellm.disableAutoRefresh', () => {
         this.stopAutoRefresh();
-        vscode.window.showInformationMessage('CoreLmm auto-refresh disabled');
+        vscode.window.showInformationMessage('CoreLLM auto-refresh disabled');
       }),
-      vscode.commands.registerCommand('corelmm.showAbout', () => {
+      vscode.commands.registerCommand('corellm.showAbout', () => {
         vscode.window.showInformationMessage(
-          `CoreLmm v${CURRENT_VERSION} — Monitor LiteLLM API key balances and usage.`,
+          `CoreLLM v${CURRENT_VERSION} — Monitor LiteLLM API key balances and usage.`,
           'Open Settings'
         ).then((sel) => {
           if (sel === 'Open Settings') {
-            vscode.commands.executeCommand('workbench.action.openSettings', '@ext:litellm-tools.corelmm');
+            vscode.commands.executeCommand('workbench.action.openSettings', '@ext:litellm-tools.corellm');
           }
         });
       })
@@ -761,9 +761,9 @@ class BalanceStatusBarManager {
   private watchConfigChanges(): void {
     this.disposables.push(
       vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('corelmm')) {
+        if (e.affectsConfiguration('corellm')) {
           this.config = getConfig();
-          this.client = new CoreLmmApiClient(this.config);
+          this.client = new CoreLLMApiClient(this.config);
           this.stopAutoRefresh();
           if (this.config.refreshInterval > 0) this.startAutoRefresh();
           this.refresh();
@@ -807,7 +807,7 @@ class BalanceStatusBarManager {
   private async openBudgetOverview(): Promise<void> {
     if (this.budgetOverviewPanel) { this.budgetOverviewPanel.reveal(vscode.ViewColumn.One); return; }
     this.budgetOverviewPanel = vscode.window.createWebviewPanel(
-      'corelmmBudgetOverview', 'CoreLmm Budget Overview', vscode.ViewColumn.One, { enableScripts: false }
+      'corellmBudgetOverview', 'CoreLLM Budget Overview', vscode.ViewColumn.One, { enableScripts: false }
     );
     this.budgetOverviewPanel.onDidDispose(() => { this.budgetOverviewPanel = undefined; });
     this.budgetOverviewPanel.webview.html = '<html><body style="padding:20px;text-align:center"><p>Loading\u2026</p></body></html>';
@@ -819,7 +819,7 @@ class BalanceStatusBarManager {
     };
 
     await vscode.window.withProgress(
-      { location: vscode.ProgressLocation.Window, title: 'Fetching CoreLmm budget data\u2026' },
+      { location: vscode.ProgressLocation.Window, title: 'Fetching CoreLLM budget data\u2026' },
       async () => { data = await this.fetchBudgetData(this.config.reportDuration); }
     );
     if (!this.budgetOverviewPanel) return;
@@ -858,10 +858,10 @@ class BalanceStatusBarManager {
       { placeHolder: 'Select report duration for Budget Overview' }
     );
     if (!pick) return;
-    const cfg = vscode.workspace.getConfiguration('corelmm');
+    const cfg = vscode.workspace.getConfiguration('corellm');
     await cfg.update('reportDuration', pick.value, vscode.ConfigurationTarget.Global);
     this.config = getConfig();
-    this.client = new CoreLmmApiClient(this.config);
+    this.client = new CoreLLMApiClient(this.config);
     if (this.budgetOverviewPanel) {
       await this.refreshBudgetOverview();
     } else {
@@ -874,7 +874,7 @@ class BalanceStatusBarManager {
   private async openSpendLogs(): Promise<void> {
     if (this.spendLogsPanel) { this.spendLogsPanel.reveal(vscode.ViewColumn.Beside); return; }
     this.spendLogsPanel = vscode.window.createWebviewPanel(
-      'corelmmSpendLogs', 'CoreLmm Spend Logs', vscode.ViewColumn.Beside, { enableScripts: false }
+      'corellmSpendLogs', 'CoreLLM Spend Logs', vscode.ViewColumn.Beside, { enableScripts: false }
     );
     this.spendLogsPanel.onDidDispose(() => { this.spendLogsPanel = undefined; });
     this.spendLogsPanel.webview.html = '<html><body style="padding:20px;text-align:center"><p>Loading\u2026</p></body></html>';
@@ -893,7 +893,7 @@ class BalanceStatusBarManager {
   private async openKeyList(): Promise<void> {
     if (this.keyListPanel) { this.keyListPanel.reveal(vscode.ViewColumn.Beside); return; }
     this.keyListPanel = vscode.window.createWebviewPanel(
-      'corelmmKeyList', 'CoreLmm Keys', vscode.ViewColumn.Beside, { enableScripts: false }
+      'corellmKeyList', 'CoreLLM Keys', vscode.ViewColumn.Beside, { enableScripts: false }
     );
     this.keyListPanel.onDidDispose(() => { this.keyListPanel = undefined; });
     this.keyListPanel.webview.html = '<html><body style="padding:20px;text-align:center"><p>Loading\u2026</p></body></html>';
@@ -936,7 +936,7 @@ class BalanceStatusBarManager {
   }
 
   private buildTooltip(data: KeyInfoResponse): string {
-    const lines: string[] = ['**CoreLmm**', ''];
+    const lines: string[] = ['**CoreLLM**', ''];
     const alias = data.key_alias || data.key_name || data.key || 'N/A';
     lines.push(`**Key:** \`${alias}\``);
     const spend = data.spend ?? 0;
@@ -979,21 +979,21 @@ class BalanceStatusBarManager {
       // If management endpoints are blocked, try to at least show models
       if (msg.includes('lacks management permissions')) {
         const models = await this.client.fetchModels();
-        this.statusBarItem.text = '$(key) CoreLmm: LLM key (limited)';
+        this.statusBarItem.text = '$(key) CoreLLM: LLM key (limited)';
         const modelList = models.length > 0 ? `\n\n**Accessible models:** ${models.slice(0, 6).join(', ')}${models.length > 6 ? ` +${models.length - 6}` : ''}` : '';
         this.statusBarItem.tooltip =
-          `**CoreLmm**\n\n` +
+          `**CoreLLM**\n\n` +
           `⚠️ This key cannot access management endpoints.\n` +
           `To see balance/budget, set an admin key in the settings.\n` +
           `Or use "keyToQuery" with this key + adminKey as proxy master.` +
           modelList;
         this.statusBarItem.color = new vscode.ThemeColor('statusBarItem.warningForeground');
       } else {
-        this.statusBarItem.text = '$(error) CoreLmm: Error';
-        this.statusBarItem.tooltip = `CoreLmm \u2014 Error: ${msg}`;
+        this.statusBarItem.text = '$(error) CoreLLM: Error';
+        this.statusBarItem.tooltip = `CoreLLM \u2014 Error: ${msg}`;
         this.statusBarItem.color = new vscode.ThemeColor('statusBarItem.errorForeground');
       }
-      if (!this.timer) vscode.window.showWarningMessage(`CoreLmm: ${msg}`);
+      if (!this.timer) vscode.window.showWarningMessage(`CoreLLM: ${msg}`);
     }
   }
 
@@ -1030,14 +1030,14 @@ let manager: BalanceStatusBarManager | undefined;
 
 // ─── Update Checker ─────────────────────────────────────────────────────────
 
-const EXTENSION_ID = 'litellm-tools.corelmm';
-const GITHUB_REPO = 'liakos356/corelmm';
+const EXTENSION_ID = 'litellm-tools.corellm';
+const GITHUB_REPO = 'liakos356/litellm-balance-checker';
 const CURRENT_VERSION = '0.1.0';
 
 async function checkForUpdates(showUpToDate = false): Promise<void> {
   try {
     const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
-      headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'corelmm-vscode' },
+      headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'corellm-vscode' },
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) return;
@@ -1049,7 +1049,7 @@ async function checkForUpdates(showUpToDate = false): Promise<void> {
       const vsixAsset = data.assets?.find((a) => a.name.endsWith('.vsix'));
       const actions = vsixAsset ? ['Update & Reload', 'Download', 'Dismiss'] : ['Download', 'Dismiss'];
       const action = await vscode.window.showInformationMessage(
-        `CoreLmm v${latestTag} available! (current: v${CURRENT_VERSION})`,
+        `CoreLLM v${latestTag} available! (current: v${CURRENT_VERSION})`,
         ...actions
       );
 
@@ -1061,7 +1061,7 @@ async function checkForUpdates(showUpToDate = false): Promise<void> {
             const dl = await fetch(vsixAsset.browser_download_url);
             if (!dl.ok) throw new Error('Download failed');
             const buf = Buffer.from(await dl.arrayBuffer());
-            const tmpPath = `${os.tmpdir()}/corelmm-${latestTag}.vsix`;
+            const tmpPath = `${os.tmpdir()}/corellm-${latestTag}.vsix`;
             fs.writeFileSync(tmpPath, buf);
             // Install via VS Code's internal command
             await vscode.commands.executeCommand('workbench.extensions.installExtension', vscode.Uri.file(tmpPath));
@@ -1075,7 +1075,7 @@ async function checkForUpdates(showUpToDate = false): Promise<void> {
         vscode.env.openExternal(vscode.Uri.parse(data.html_url));
       }
     } else if (showUpToDate) {
-      vscode.window.showInformationMessage(`CoreLmm is up to date (v${CURRENT_VERSION}).`);
+      vscode.window.showInformationMessage(`CoreLLM is up to date (v${CURRENT_VERSION}).`);
     }
   } catch {
     if (showUpToDate) {
@@ -1099,11 +1099,11 @@ function compareVersions(a: string, b: string): number {
 // ─── Activation ──────────────────────────────────────────────────────────────
 
 export function activate(context: vscode.ExtensionContext): void {
-  console.log('CoreLmm activating...');
+  console.log('CoreLLM activating...');
 
   // Register update command
   context.subscriptions.push(
-    vscode.commands.registerCommand('corelmm.checkForUpdates', () => checkForUpdates(true))
+    vscode.commands.registerCommand('corellm.checkForUpdates', () => checkForUpdates(true))
   );
 
   manager = new BalanceStatusBarManager();
@@ -1112,11 +1112,11 @@ export function activate(context: vscode.ExtensionContext): void {
   const config = getConfig();
   if (!config.apiKey && !config.adminKey && !config.username) {
     vscode.window.showInformationMessage(
-      'CoreLmm: Configure your API key in settings to get started.',
+      'CoreLLM: Configure your API key in settings to get started.',
       'Open Settings'
     ).then((sel) => {
       if (sel === 'Open Settings') {
-        vscode.commands.executeCommand('workbench.action.openSettings', '@ext:litellm-tools.corelmm');
+        vscode.commands.executeCommand('workbench.action.openSettings', '@ext:litellm-tools.corellm');
       }
     });
   }
@@ -1124,10 +1124,10 @@ export function activate(context: vscode.ExtensionContext): void {
   // Check for updates silently on startup (once per session)
   setTimeout(() => checkForUpdates(), 5000);
 
-  console.log('CoreLmm activated');
+  console.log('CoreLLM activated');
 }
 
 export function deactivate(): void {
   if (manager) { manager.dispose(); manager = undefined; }
-  console.log('CoreLmm deactivated');
+  console.log('CoreLLM deactivated');
 }

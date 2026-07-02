@@ -1,6 +1,6 @@
 {
-  "name": "corelmm",
-  "displayName": "CoreLmm",
+  "name": "corellm",
+  "displayName": "CoreLLM",
   "description": "Monitor LiteLLM API key balances, budgets, and usage directly from VS Code status bar",
   "version": "0.1.0",
   "publisher": "litellm-tools",
@@ -8,7 +8,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/liakos356/corelmm.git"
+    "url": "https://github.com/liakos356/litellm-balance-checker.git"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -23,107 +23,107 @@
   "contributes": {
     "commands": [
       {
-        "command": "corelmm.refresh",
-        "title": "CoreLmm: Refresh Balance"
+        "command": "corellm.refresh",
+        "title": "CoreLLM: Refresh Balance"
       },
       {
-        "command": "corelmm.openSettings",
-        "title": "CoreLmm: Open Settings"
+        "command": "corellm.openSettings",
+        "title": "CoreLLM: Open Settings"
       },
       {
-        "command": "corelmm.toggleAutoRefresh",
-        "title": "CoreLmm: Toggle Auto-Refresh"
+        "command": "corellm.toggleAutoRefresh",
+        "title": "CoreLLM: Toggle Auto-Refresh"
       },
       {
-        "command": "corelmm.enableAutoRefresh",
-        "title": "CoreLmm: Enable Auto-Refresh"
+        "command": "corellm.enableAutoRefresh",
+        "title": "CoreLLM: Enable Auto-Refresh"
       },
       {
-        "command": "corelmm.disableAutoRefresh",
-        "title": "CoreLmm: Disable Auto-Refresh"
+        "command": "corellm.disableAutoRefresh",
+        "title": "CoreLLM: Disable Auto-Refresh"
       },
       {
-        "command": "corelmm.showBudgetOverview",
-        "title": "CoreLmm: Show Budget Overview"
+        "command": "corellm.showBudgetOverview",
+        "title": "CoreLLM: Show Budget Overview"
       },
       {
-        "command": "corelmm.showSpendLogs",
-        "title": "CoreLmm: Show Spend Logs"
+        "command": "corellm.showSpendLogs",
+        "title": "CoreLLM: Show Spend Logs"
       },
       {
-        "command": "corelmm.listKeys",
-        "title": "CoreLmm: List All Keys"
+        "command": "corellm.listKeys",
+        "title": "CoreLLM: List All Keys"
       },
       {
-        "command": "corelmm.setReportDuration",
-        "title": "CoreLmm: Set Report Duration"
+        "command": "corellm.setReportDuration",
+        "title": "CoreLLM: Set Report Duration"
       },
       {
-        "command": "corelmm.checkForUpdates",
-        "title": "CoreLmm: Check for Updates"
+        "command": "corellm.checkForUpdates",
+        "title": "CoreLLM: Check for Updates"
       },
       {
-        "command": "corelmm.showAbout",
-        "title": "CoreLmm: About"
+        "command": "corellm.showAbout",
+        "title": "CoreLLM: About"
       }
     ],
     "configuration": {
-      "title": "CoreLmm",
+      "title": "CoreLLM",
       "properties": {
-        "corelmm.apiKey": {
+        "corellm.apiKey": {
           "type": "string",
           "default": "",
           "description": "Your LiteLLM API key to check balance for. If empty, the Authorization header will use the key being queried."
         },
-        "corelmm.adminKey": {
+        "corellm.adminKey": {
           "type": "string",
           "default": "",
           "description": "Admin/proxy master key (if required) for querying key info. Leave empty if using the same key as apiKey."
         },
-        "corelmm.username": {
+        "corellm.username": {
           "type": "string",
           "default": "",
           "description": "LiteLLM UI username (for login-based auth). The extension will login and extract the embedded API key from the session."
         },
-        "corelmm.password": {
+        "corellm.password": {
           "type": "string",
           "default": "",
           "description": "LiteLLM UI password (for login-based auth). Stored in VS Code secret storage."
         },
-        "corelmm.endpoint": {
+        "corellm.endpoint": {
           "type": "string",
           "default": "http://core.llm",
           "description": "The LiteLLM proxy endpoint URL (e.g., http://localhost:4000 or http://core.llm)"
         },
-        "corelmm.refreshInterval": {
+        "corellm.refreshInterval": {
           "type": "number",
           "default": 60,
           "minimum": 5,
           "description": "Auto-refresh interval in seconds (minimum 5). Set to 0 to disable auto-refresh."
         },
-        "corelmm.showKeyAlias": {
+        "corellm.showKeyAlias": {
           "type": "boolean",
           "default": true,
           "description": "Show the key alias/name in the status bar next to the balance"
         },
-        "corelmm.showSpendLogs": {
+        "corellm.showSpendLogs": {
           "type": "boolean",
           "default": false,
           "description": "Also display recent spend in the status bar (uses /spend/logs)"
         },
-        "corelmm.budgetWarningThreshold": {
+        "corellm.budgetWarningThreshold": {
           "type": "number",
           "default": 20,
           "minimum": 0,
           "maximum": 100,
           "description": "Warning threshold percentage. When remaining budget falls below this % of max_budget, show a warning."
         },
-        "corelmm.keyToQuery": {
+        "corellm.keyToQuery": {
           "type": "string",
           "default": "",
           "description": "Optional: Query a specific key (different from the auth key). If empty, queries the key used for authentication."
         },
-        "corelmm.reportDuration": {
+        "corellm.reportDuration": {
           "type": "string",
           "default": "7d",
           "enum": [
@@ -142,12 +142,12 @@
           ],
           "description": "Time range for the Budget Overview spend report."
         },
-        "corelmm.reportCustomStart": {
+        "corellm.reportCustomStart": {
           "type": "string",
           "default": "",
           "description": "Custom start date (YYYY-MM-DD) for the spend report when reportDuration=custom."
         },
-        "corelmm.reportCustomEnd": {
+        "corellm.reportCustomEnd": {
           "type": "string",
           "default": "",
           "description": "Custom end date (YYYY-MM-DD) for the spend report when reportDuration=custom."

@@ -1,11 +1,11 @@
 {
   // Option A: Direct API key
-  // "corelmm.apiKey": "sk-your-key-here",
+  // "corellm.apiKey": "sk-your-key-here",
   // Option B: Username/password (auto-extracts session key)
-  // "corelmm.username": "your@email.com",
-  // "corelmm.password": "your-password",
-  "corelmm.endpoint": "http://core.llm",
-  "corelmm.refreshInterval": 60,
-  "corelmm.showKeyAlias": true,
-  "corelmm.budgetWarningThreshold": 20
+  // "corellm.username": "your@email.com",
+  // "corellm.password": "your-password",
+  "corellm.endpoint": "http://core.llm",
+  "corellm.refreshInterval": 60,
+  "corellm.showKeyAlias": true,
+  "corellm.budgetWarningThreshold": 20
 }
