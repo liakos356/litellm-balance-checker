@@ -91,6 +91,24 @@ interface StatusBarDisplay {
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
+type ReportDuration = '1h' | '24h' | '7d' | '30d' | 'custom';
+
+const DURATION_LABELS: Record<ReportDuration, string> = {
+  '1h': 'Last hour',
+  '24h': 'Last 24 hours',
+  '7d': 'Last 7 days',
+  '30d': 'Last 30 days',
+  'custom': 'Custom range',
+};
+
+const DURATION_MS: Record<ReportDuration, number | null> = {
+  '1h': 3600000,
+  '24h': 86400000,
+  '7d': 604800000,
+  '30d': 2592000000,
+  'custom': null,
+};
+
 interface ExtensionConfig {
   apiKey: string;
   adminKey: string;
@@ -102,6 +120,9 @@ interface ExtensionConfig {
   showSpendLogs: boolean;
   budgetWarningThreshold: number;
   keyToQuery: string;
+  reportDuration: ReportDuration;
+  reportCustomStart: string;
+  reportCustomEnd: string;
 }
 
 function getConfig(): ExtensionConfig {
@@ -117,6 +138,30 @@ function getConfig(): ExtensionConfig {
     showSpendLogs: cfg.get<boolean>('showSpendLogs', false),
     budgetWarningThreshold: cfg.get<number>('budgetWarningThreshold', 20),
     keyToQuery: cfg.get<string>('keyToQuery', ''),
+    reportDuration: cfg.get<ReportDuration>('reportDuration', '7d'),
+    reportCustomStart: cfg.get<string>('reportCustomStart', ''),
+    reportCustomEnd: cfg.get<string>('reportCustomEnd', ''),
+  };
+}
+
+function getDateRange(duration: ReportDuration, customStart: string, customEnd: string): { start: string; end: string } {
+  const end = new Date();
+  if (duration === 'custom') {
+    return {
+      start: customStart || new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10),
+      end: customEnd || end.toISOString().slice(0, 10),
+    };
+  }
+  const ms = DURATION_MS[duration];
+  if (ms) {
+    return {
+      start: new Date(Date.now() - ms).toISOString().slice(0, 10),
+      end: end.toISOString().slice(0, 10),
+    };
+  }
+  return {
+    start: new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
   };
 }
 
@@ -241,12 +286,10 @@ class LiteLLMApiClient {
   }
 
   /** GET /global/spend/report — daily spend grouped by team */
-  async fetchGlobalSpendReport(days = 7): Promise<GlobalSpendReportEntry[]> {
-    const end = new Date();
-    const start = new Date(Date.now() - days * 86400000);
+  async fetchGlobalSpendReport(startDate: string, endDate: string): Promise<GlobalSpendReportEntry[]> {
     return this.apiGet<GlobalSpendReportEntry[]>('/global/spend/report', {
-      start_date: start.toISOString().slice(0, 10),
-      end_date: end.toISOString().slice(0, 10),
+      start_date: startDate,
+      end_date: endDate,
     });
   }
 
@@ -366,8 +409,10 @@ function buildBudgetOverviewHtml(data: {
   keyError: string | null;
   providerError: string | null;
   reportError: string | null;
+  durationLabel?: string;
+  dateRange?: string;
 }): string {
-  const { keyInfo, providerBudgets, globalReport, spendLogs, keyError, providerError, reportError } = data;
+  const { keyInfo, providerBudgets, globalReport, spendLogs, keyError, providerError, reportError, durationLabel, dateRange } = data;
 
   // Aggregate from report
   let totalSpend = 0;
@@ -503,7 +548,8 @@ function buildBudgetOverviewHtml(data: {
 
 <!-- Global Spend Report Card -->
 <div class="card">
-  <h3>\uD83C\uDF10 Daily Spend (7d) <span class="badge">${globalReport.length} days</span></h3>
+  <h3>\uD83C\uDF10 Daily Spend ${durationLabel ? '\\(' + durationLabel + '\\)' : ''} <span class="badge">${globalReport.length} days</span></h3>
+  ${dateRange ? `<p style="font-size:.8em;opacity:.6;margin:4px 0 0">${escapeHtml(dateRange)}</p>` : ''}
   ${reportError ? `<div class="error-box">\u26A0 ${escapeHtml(reportError)}</div>` : ''}
   ${globalReport.length > 0 ? `
   <div class="grid" style="margin-bottom:12px">
@@ -685,7 +731,8 @@ class BalanceStatusBarManager {
       }),
       vscode.commands.registerCommand('litellm-balance-checker.showBudgetOverview', () => this.openBudgetOverview()),
       vscode.commands.registerCommand('litellm-balance-checker.showSpendLogs', () => this.openSpendLogs()),
-      vscode.commands.registerCommand('litellm-balance-checker.listKeys', () => this.openKeyList())
+      vscode.commands.registerCommand('litellm-balance-checker.listKeys', () => this.openKeyList()),
+      vscode.commands.registerCommand('litellm-balance-checker.setReportDuration', () => this.pickReportDuration())
     );
   }
 
@@ -705,14 +752,12 @@ class BalanceStatusBarManager {
 
   // ── Budget Overview ──────────────────────────────────────────────────────
 
-  private async openBudgetOverview(): Promise<void> {
-    if (this.budgetOverviewPanel) { this.budgetOverviewPanel.reveal(vscode.ViewColumn.One); return; }
-    this.budgetOverviewPanel = vscode.window.createWebviewPanel(
-      'litellmBudgetOverview', 'LiteLLM Budget Overview', vscode.ViewColumn.One, { enableScripts: false }
-    );
-    this.budgetOverviewPanel.onDidDispose(() => { this.budgetOverviewPanel = undefined; });
-    this.budgetOverviewPanel.webview.html = '<html><body style="padding:20px;text-align:center"><p>Loading\u2026</p></body></html>';
-
+  private async fetchBudgetData(duration: ReportDuration): Promise<{
+    keyInfo: KeyInfoResponse | null; providerBudgets: ProviderBudgetResponse | null;
+    globalReport: GlobalSpendReportEntry[]; spendLogs: SpendLogEntry[];
+    keyError: string | null; providerError: string | null; reportError: string | null;
+  }> {
+    const dr = getDateRange(duration, this.config.reportCustomStart, this.config.reportCustomEnd);
     let keyInfo: KeyInfoResponse | null = null;
     let providerBudgets: ProviderBudgetResponse | null = null;
     let globalReport: GlobalSpendReportEntry[] = [];
@@ -721,28 +766,85 @@ class BalanceStatusBarManager {
     let providerError: string | null = null;
     let reportError: string | null = null;
 
+    const results = await Promise.allSettled([
+      this.client.fetchKeyInfo(),
+      this.client.fetchProviderBudgets(),
+      this.client.fetchGlobalSpendReport(dr.start, dr.end),
+      this.client.fetchSpendLogs(10),
+    ]);
+    if (results[0].status === 'fulfilled') keyInfo = results[0].value;
+    else keyError = (results[0].reason as Error)?.message ?? 'Unknown error';
+    if (results[1].status === 'fulfilled') providerBudgets = results[1].value;
+    else providerError = (results[1].reason as Error)?.message ?? 'Unknown error';
+    if (results[2].status === 'fulfilled') globalReport = results[2].value;
+    else reportError = (results[2].reason as Error)?.message ?? 'Unknown error';
+    if (results[3].status === 'fulfilled') spendLogs = results[3].value;
+    return { keyInfo, providerBudgets, globalReport, spendLogs, keyError, providerError, reportError };
+  }
+
+  private async openBudgetOverview(): Promise<void> {
+    if (this.budgetOverviewPanel) { this.budgetOverviewPanel.reveal(vscode.ViewColumn.One); return; }
+    this.budgetOverviewPanel = vscode.window.createWebviewPanel(
+      'litellmBudgetOverview', 'LiteLLM Budget Overview', vscode.ViewColumn.One, { enableScripts: false }
+    );
+    this.budgetOverviewPanel.onDidDispose(() => { this.budgetOverviewPanel = undefined; });
+    this.budgetOverviewPanel.webview.html = '<html><body style="padding:20px;text-align:center"><p>Loading\u2026</p></body></html>';
+
+    let data: {
+      keyInfo: KeyInfoResponse | null; providerBudgets: ProviderBudgetResponse | null;
+      globalReport: GlobalSpendReportEntry[]; spendLogs: SpendLogEntry[];
+      keyError: string | null; providerError: string | null; reportError: string | null;
+    };
+
     await vscode.window.withProgress(
       { location: vscode.ProgressLocation.Window, title: 'Fetching LiteLLM budget data\u2026' },
-      async () => {
-        const results = await Promise.allSettled([
-          this.client.fetchKeyInfo(),
-          this.client.fetchProviderBudgets(),
-          this.client.fetchGlobalSpendReport(7),
-          this.client.fetchSpendLogs(10),
-        ]);
-        if (results[0].status === 'fulfilled') keyInfo = results[0].value;
-        else keyError = (results[0].reason as Error)?.message ?? 'Unknown error';
-        if (results[1].status === 'fulfilled') providerBudgets = results[1].value;
-        else providerError = (results[1].reason as Error)?.message ?? 'Unknown error';
-        if (results[2].status === 'fulfilled') globalReport = results[2].value;
-        else reportError = (results[2].reason as Error)?.message ?? 'Unknown error';
-        if (results[3].status === 'fulfilled') spendLogs = results[3].value;
-      }
+      async () => { data = await this.fetchBudgetData(this.config.reportDuration); }
     );
     if (!this.budgetOverviewPanel) return;
-    this.budgetOverviewPanel.webview.html = buildBudgetOverviewHtml({
-      keyInfo, providerBudgets, globalReport, spendLogs, keyError, providerError, reportError,
-    });
+    this.budgetOverviewPanel.webview.html = this.buildBudgetOverviewHtmlWithDuration(data!);
+  }
+
+  /** Re-render the budget overview panel (call when duration changes) */
+  private async refreshBudgetOverview(): Promise<void> {
+    if (!this.budgetOverviewPanel) return;
+    const data = await this.fetchBudgetData(this.config.reportDuration);
+    if (this.budgetOverviewPanel) {
+      this.budgetOverviewPanel.webview.html = this.buildBudgetOverviewHtmlWithDuration(data);
+    }
+  }
+
+  private buildBudgetOverviewHtmlWithDuration(data: {
+    keyInfo: KeyInfoResponse | null; providerBudgets: ProviderBudgetResponse | null;
+    globalReport: GlobalSpendReportEntry[]; spendLogs: SpendLogEntry[];
+    keyError: string | null; providerError: string | null; reportError: string | null;
+  }): string {
+    const dur = this.config.reportDuration;
+    const durLabel = DURATION_LABELS[dur] || dur;
+    const dr = getDateRange(dur, this.config.reportCustomStart, this.config.reportCustomEnd);
+    return buildBudgetOverviewHtml({ ...data, durationLabel: durLabel, dateRange: `${dr.start} \u2013 ${dr.end}` });
+  }
+
+  /** Show a QuickPick to change the report duration, then refresh */
+  private async pickReportDuration(): Promise<void> {
+    const pick = await vscode.window.showQuickPick(
+      (Object.keys(DURATION_LABELS) as ReportDuration[]).map((k) => ({
+        label: DURATION_LABELS[k],
+        description: k === this.config.reportDuration ? 'current' : '',
+        detail: k === 'custom' ? 'Set start/end dates in settings' : undefined,
+        value: k,
+      })),
+      { placeHolder: 'Select report duration for Budget Overview' }
+    );
+    if (!pick) return;
+    const cfg = vscode.workspace.getConfiguration('litellm-balance-checker');
+    await cfg.update('reportDuration', pick.value, vscode.ConfigurationTarget.Global);
+    this.config = getConfig();
+    this.client = new LiteLLMApiClient(this.config);
+    if (this.budgetOverviewPanel) {
+      await this.refreshBudgetOverview();
+    } else {
+      await this.openBudgetOverview();
+    }
   }
 
   // ── Spend Logs ───────────────────────────────────────────────────────────
@@ -836,7 +938,9 @@ class BalanceStatusBarManager {
       lines.push(`**Models:** ${ml}${data.models.length > 5 ? ` +${data.models.length - 5} more` : ''}`);
     }
     lines.push('');
-    lines.push('$(refresh) Click to refresh  |  $(organization) Full overview -> Ctrl+Shift+B');
+    lines.push('$(refresh) Click to refresh');
+    lines.push('$(organization) Budget Overview -> Ctrl+Shift+B');
+    lines.push(`$(calendar) Duration: ${DURATION_LABELS[this.config.reportDuration]} \u2014 click "Set Report Duration" to change`);
     return lines.join('\n');
   }
 

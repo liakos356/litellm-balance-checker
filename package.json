@@ -45,6 +45,10 @@
       {
         "command": "litellm-balance-checker.listKeys",
         "title": "LiteLLM: List All Keys"
+      },
+      {
+        "command": "litellm-balance-checker.setReportDuration",
+        "title": "LiteLLM: Set Report Duration"
       }
     ],
     "configuration": {
@@ -102,6 +106,29 @@
           "type": "string",
           "default": "",
           "description": "Optional: Query a specific key (different from the auth key). If empty, queries the key used for authentication."
+        },
+        "litellm-balance-checker.reportDuration": {
+          "type": "string",
+          "default": "7d",
+          "enum": ["1h", "24h", "7d", "30d", "custom"],
+          "enumDescriptions": [
+            "Last hour",
+            "Last 24 hours",
+            "Last 7 days",
+            "Last 30 days",
+            "Custom range (set dates below)"
+          ],
+          "description": "Time range for the Budget Overview spend report."
+        },
+        "litellm-balance-checker.reportCustomStart": {
+          "type": "string",
+          "default": "",
+          "description": "Custom start date (YYYY-MM-DD) for the spend report when reportDuration=custom."
+        },
+        "litellm-balance-checker.reportCustomEnd": {
+          "type": "string",
+          "default": "",
+          "description": "Custom end date (YYYY-MM-DD) for the spend report when reportDuration=custom."
         }
       }
     }

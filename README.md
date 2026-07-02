@@ -15,7 +15,7 @@
 - **Budget warnings** — color changes when remaining budget drops below threshold
 - **Multiple auth modes** — API key, admin key, or username/password login
 - **Budget Overview panel** (`Ctrl+Shift+B`) — full dashboard with:
-  - Daily spend bar chart
+  - Daily spend bar chart (customizable range: 1h / 24h / 7d / 30d / custom)
   - Provider budget bars
   - Model usage donut chart
   - Recent spend logs table
@@ -90,6 +90,9 @@ Logs in via `POST /login`, extracts the embedded `sk-...` key from the JWT sessi
 | `showSpendLogs` | `false` | Append recent spend total to status bar |
 | `budgetWarningThreshold` | `20` | Warning color when remaining budget % is below this |
 | `keyToQuery` | `""` | Query a specific key (uses auth settings for credentials) |
+| `reportDuration` | `"7d"` | Time range for budget spend charts (`1h`, `24h`, `7d`, `30d`, `custom`) |
+| `reportCustomStart` | `""` | Custom start date (YYYY-MM-DD) when `reportDuration=custom` |
+| `reportCustomEnd` | `""` | Custom end date (YYYY-MM-DD) when `reportDuration=custom` |
 
 ---
 
@@ -102,6 +105,7 @@ Logs in via `POST /login`, extracts the embedded `sk-...` key from the JWT sessi
 | `LiteLLM: Show Spend Logs` | Open paginated spend logs panel |
 | `LiteLLM: List All Keys` | List all keys with spend & budget |
 | `LiteLLM: Toggle Auto-Refresh` | Enable/disable polling |
+| `LiteLLM: Set Report Duration` | Choose time range for charts (1h/24h/7d/30d/custom) |
 | `LiteLLM: Open Settings` | Jump to extension settings |
 
 ---
