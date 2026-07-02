@@ -1067,36 +1067,88 @@ const EXTENSION_ID = 'litellm-tools.corellm';
 const GITHUB_REPO = 'liakos356/litellm-balance-checker';
 const CURRENT_VERSION = '0.1.0';
 
+/** Try to fetch the latest tag from tags API (fallback when no releases exist). */
+async function fetchLatestTagFromTags(): Promise<{ tag: string; vsixUrl: string } | null> {
+  const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/tags`, {
+    headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'corellm-vscode' },
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) return null;
+  const tags = await res.json() as Array<{ name: string }>;
+  if (!tags || tags.length === 0) return null;
+  // Find the newest tag matching v* or just the first one
+  const versionTags = tags.filter(t => /^v?\d/.test(t.name)).sort((a, b) => {
+    const va = a.name.replace(/^v/, '');
+    const vb = b.name.replace(/^v/, '');
+    return compareVersions(vb, va); // newest first
+  });
+  const best = versionTags[0] || tags[0];
+  const tag = best.name.replace(/^v/, '');
+  // Build raw download URL from tag ref — VSIX is tracked in the repo root
+  const vsixUrl = `https://raw.githubusercontent.com/${GITHUB_REPO}/v${tag}/corellm-${tag}.vsix`;
+  return { tag, vsixUrl };
+}
+
 async function checkForUpdates(showUpToDate = false): Promise<void> {
   try {
-    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+    // Try releases/latest first
+    const releaseRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
       headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'corellm-vscode' },
       signal: AbortSignal.timeout(8000),
     });
-    if (!res.ok) return;
-    const data = await res.json() as { tag_name?: string; html_url?: string; name?: string; assets?: Array<{ name: string; browser_download_url: string }> };
-    const latestTag = (data.tag_name || data.name || '').replace(/^v/, '');
-    if (!latestTag) return;
+
+    let latestTag: string | null = null;
+    let vsixDownloadUrl: string | null = null;
+    let releaseUrl: string | null = null;
+
+    if (releaseRes.ok) {
+      const data = await releaseRes.json() as {
+        tag_name?: string; html_url?: string; name?: string;
+        assets?: Array<{ name: string; browser_download_url: string }>;
+      };
+      const tag = (data.tag_name || data.name || '').replace(/^v/, '');
+      if (tag) {
+        latestTag = tag;
+        releaseUrl = data.html_url || null;
+        const vsixAsset = data.assets?.find((a) => a.name.endsWith('.vsix'));
+        vsixDownloadUrl = vsixAsset?.browser_download_url || null;
+      }
+    }
+
+    // Fall back to tags if no release found
+    if (!latestTag) {
+      const tagInfo = await fetchLatestTagFromTags();
+      if (tagInfo) {
+        latestTag = tagInfo.tag;
+        vsixDownloadUrl = tagInfo.vsixUrl;
+        releaseUrl = `https://github.com/${GITHUB_REPO}/tree/v${tagInfo.tag}`;
+      }
+    }
+
+    if (!latestTag) {
+      if (showUpToDate) {
+        vscode.window.showInformationMessage('No releases or tags found in the repository.');
+      }
+      return;
+    }
 
     if (compareVersions(latestTag, CURRENT_VERSION) > 0) {
-      const vsixAsset = data.assets?.find((a) => a.name.endsWith('.vsix'));
-      const actions = vsixAsset ? ['Update & Reload', 'Download', 'Dismiss'] : ['Download', 'Dismiss'];
+      const hasVsix = !!vsixDownloadUrl;
+      const actions = hasVsix ? ['Update & Reload', 'Download', 'Dismiss'] : ['Download', 'Dismiss'];
       const action = await vscode.window.showInformationMessage(
         `CoreLLM v${latestTag} available! (current: v${CURRENT_VERSION})`,
         ...actions
       );
 
-      if (action === 'Update & Reload' && vsixAsset) {
-        // Download and auto-install
+      if (action === 'Update & Reload' && vsixDownloadUrl) {
         await vscode.window.withProgress(
           { location: vscode.ProgressLocation.Notification, title: 'Downloading update...' },
           async () => {
-            const dl = await fetch(vsixAsset.browser_download_url);
+            const dl = await fetch(vsixDownloadUrl);
             if (!dl.ok) throw new Error('Download failed');
             const buf = Buffer.from(await dl.arrayBuffer());
             const tmpPath = `${os.tmpdir()}/corellm-${latestTag}.vsix`;
             fs.writeFileSync(tmpPath, buf);
-            // Install via VS Code's internal command
             await vscode.commands.executeCommand('workbench.extensions.installExtension', vscode.Uri.file(tmpPath));
           }
         );
@@ -1104,8 +1156,8 @@ async function checkForUpdates(showUpToDate = false): Promise<void> {
           'Update installed! Reload now to apply.', 'Reload Now'
         );
         if (reload) vscode.commands.executeCommand('workbench.action.reloadWindow');
-      } else if (action === 'Download' && data.html_url) {
-        vscode.env.openExternal(vscode.Uri.parse(data.html_url));
+      } else if (action === 'Download' && releaseUrl) {
+        vscode.env.openExternal(vscode.Uri.parse(releaseUrl));
       }
     } else if (showUpToDate) {
       vscode.window.showInformationMessage(`CoreLLM is up to date (v${CURRENT_VERSION}).`);
