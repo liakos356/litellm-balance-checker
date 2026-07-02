@@ -125,6 +125,7 @@ interface ExtensionConfig {
   reportDuration: ReportDuration;
   reportCustomStart: string;
   reportCustomEnd: string;
+  updateCheckInterval: number;
 }
 
 function getConfig(): ExtensionConfig {
@@ -143,6 +144,7 @@ function getConfig(): ExtensionConfig {
     reportDuration: cfg.get<ReportDuration>('reportDuration', '7d'),
     reportCustomStart: cfg.get<string>('reportCustomStart', ''),
     reportCustomEnd: cfg.get<string>('reportCustomEnd', ''),
+    updateCheckInterval: cfg.get<number>('updateCheckInterval', 24),
   };
 }
 
@@ -1109,12 +1111,14 @@ class BalanceStatusBarManager {
 // ─── Activation ──────────────────────────────────────────────────────────────
 
 let manager: BalanceStatusBarManager | undefined;
+let updateTimer: NodeJS.Timeout | undefined;
 
 // ─── Update Checker ─────────────────────────────────────────────────────────
 
 const EXTENSION_ID = 'litellm-tools.corellm';
 const GITHUB_REPO = 'liakos356/litellm-balance-checker';
 const CURRENT_VERSION = '0.2.0';
+const LAST_NOTIFIED_KEY = 'corellm.lastNotifiedVersion';
 
 /** Try to fetch the latest tag from tags API (fallback when no releases exist). */
 async function fetchLatestTagFromTags(): Promise<{ tag: string; vsixUrl: string } | null> {
@@ -1138,7 +1142,7 @@ async function fetchLatestTagFromTags(): Promise<{ tag: string; vsixUrl: string 
   return { tag, vsixUrl };
 }
 
-async function checkForUpdates(showUpToDate = false): Promise<void> {
+async function checkForUpdates(context: vscode.ExtensionContext, showUpToDate = false): Promise<void> {
   try {
     // Try releases/latest first
     const releaseRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
@@ -1182,6 +1186,11 @@ async function checkForUpdates(showUpToDate = false): Promise<void> {
     }
 
     if (compareVersions(latestTag, CURRENT_VERSION) > 0) {
+      // Only notify once per version
+      const lastNotified = context.globalState.get<string>(LAST_NOTIFIED_KEY);
+      if (lastNotified === latestTag) return;
+      await context.globalState.update(LAST_NOTIFIED_KEY, latestTag);
+
       const hasVsix = !!vsixDownloadUrl;
       const actions = hasVsix ? ['Update & Reload', 'Download', 'Dismiss'] : ['Download', 'Dismiss'];
       const action = await vscode.window.showInformationMessage(
@@ -1237,7 +1246,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Register update command
   context.subscriptions.push(
-    vscode.commands.registerCommand('corellm.checkForUpdates', () => checkForUpdates(true))
+    vscode.commands.registerCommand('corellm.checkForUpdates', () => checkForUpdates(context, true))
   );
 
   manager = new BalanceStatusBarManager();
@@ -1256,13 +1265,19 @@ export function activate(context: vscode.ExtensionContext): void {
     });
   }
 
-  // Check for updates silently on startup (once per session)
-  setTimeout(() => checkForUpdates(), 5000);
+  // Check for updates on startup (silent)
+  setTimeout(() => checkForUpdates(context), 5000);
+
+  // Periodic update checks
+  const updateIntervalHours = getConfig().updateCheckInterval;
+  const updateIntervalMs = Math.max(3600000, updateIntervalHours * 3600000);
+  updateTimer = setInterval(() => checkForUpdates(context), updateIntervalMs);
 
   console.log('CoreLLM activated');
 }
 
 export function deactivate(): void {
+  if (updateTimer) { clearInterval(updateTimer); updateTimer = undefined; }
   if (manager) { manager.dispose(); manager = undefined; }
   console.log('CoreLLM deactivated');
 }
