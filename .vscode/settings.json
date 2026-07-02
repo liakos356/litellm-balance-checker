@@ -1,6 +1,9 @@
 {
-  // ⚠️ Add your API key here or in User settings (Cmd+,)
+  // Option A: Direct API key
   // "litellm-balance-checker.apiKey": "sk-your-key-here",
+  // Option B: Username/password (auto-extracts session key)
+  // "litellm-balance-checker.username": "your@email.com",
+  // "litellm-balance-checker.password": "your-password",
   "litellm-balance-checker.endpoint": "http://core.llm",
   "litellm-balance-checker.refreshInterval": 60,
   "litellm-balance-checker.showKeyAlias": true,

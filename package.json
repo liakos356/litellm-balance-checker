@@ -59,6 +59,16 @@
           "default": "",
           "description": "Admin/proxy master key (if required) for querying key info. Leave empty if using the same key as apiKey."
         },
+        "litellm-balance-checker.username": {
+          "type": "string",
+          "default": "",
+          "description": "LiteLLM UI username (for login-based auth). The extension will login and extract the embedded API key from the session."
+        },
+        "litellm-balance-checker.password": {
+          "type": "string",
+          "default": "",
+          "description": "LiteLLM UI password (for login-based auth). Stored in VS Code secret storage."
+        },
         "litellm-balance-checker.endpoint": {
           "type": "string",
           "default": "http://core.llm",

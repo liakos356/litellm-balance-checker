@@ -94,6 +94,8 @@ interface StatusBarDisplay {
 interface ExtensionConfig {
   apiKey: string;
   adminKey: string;
+  username: string;
+  password: string;
   endpoint: string;
   refreshInterval: number;
   showKeyAlias: boolean;
@@ -107,6 +109,8 @@ function getConfig(): ExtensionConfig {
   return {
     apiKey: cfg.get<string>('apiKey', ''),
     adminKey: cfg.get<string>('adminKey', ''),
+    username: cfg.get<string>('username', ''),
+    password: cfg.get<string>('password', ''),
     endpoint: cfg.get<string>('endpoint', 'http://core.llm').replace(/\/+$/, ''),
     refreshInterval: cfg.get<number>('refreshInterval', 60),
     showKeyAlias: cfg.get<boolean>('showKeyAlias', true),
@@ -120,16 +124,71 @@ function getConfig(): ExtensionConfig {
 
 class LiteLLMApiClient {
   private config: ExtensionConfig;
+  private cachedJwtKey: string | undefined;
+  private loginPromise: Promise<string | null> | undefined;
 
   constructor(config: ExtensionConfig) {
     this.config = config;
   }
 
-  private getHeaders(): Record<string, string> {
+  /**
+   * Login with username/password and extract the embedded API key from JWT.
+   * Falls back to apiKey/adminKey if login fails or not configured.
+   */
+  private async loginAndGetKey(): Promise<string | null> {
+    if (this.cachedJwtKey) return this.cachedJwtKey;
+    if (!this.config.username || !this.config.password) return null;
+
+    if (!this.loginPromise) {
+      this.loginPromise = (async () => {
+        try {
+          const url = `${this.config.endpoint}/login`;
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `username=${encodeURIComponent(this.config.username)}&password=${encodeURIComponent(this.config.password)}`,
+            redirect: 'manual',
+          });
+          const setCookie = res.headers.get('set-cookie') || '';
+          const jwtMatch = setCookie.match(/token=([^;]+)/);
+          if (!jwtMatch) throw new Error('No token cookie returned');
+          const jwt = jwtMatch[1];
+
+          // Decode JWT payload to extract embedded sk- key
+          const payloadB64 = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+          const jsonStr = atob(payloadB64);
+          const payload = JSON.parse(jsonStr);
+          const embeddedKey: string = payload.key || '';
+          if (embeddedKey.startsWith('sk-')) {
+            this.cachedJwtKey = embeddedKey;
+            return embeddedKey;
+          }
+          throw new Error('No valid sk- key in JWT');
+        } catch (err) {
+          this.loginPromise = undefined; // allow retry next time
+          throw err;
+        }
+      })();
+    }
+    return this.loginPromise;
+  }
+
+  private async resolveAuthKey(): Promise<string | null> {
+    // Priority: 1) login-derived key  2) adminKey  3) apiKey
+    if (this.config.username) {
+      try {
+        const key = await this.loginAndGetKey();
+        if (key) return key;
+      } catch { /* fall through */ }
+    }
+    return this.config.adminKey || this.config.apiKey || null;
+  }
+
+  private async getHeaders(): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
-    const authKey = this.config.adminKey || this.config.apiKey;
+    const authKey = await this.resolveAuthKey();
     if (authKey) {
       headers['Authorization'] = `Bearer ${authKey}`;
       headers['x-litellm-api-key'] = authKey;
@@ -144,7 +203,7 @@ class LiteLLMApiClient {
         if (v) url.searchParams.set(k, v);
       }
     }
-    const res = await fetch(url.toString(), { method: 'GET', headers: this.getHeaders() });
+    const res = await fetch(url.toString(), { method: 'GET', headers: await this.getHeaders() });
     if (!res.ok) {
       const text = await res.text();
       const snippet = text.slice(0, 300);
