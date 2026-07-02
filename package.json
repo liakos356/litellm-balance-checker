@@ -4,6 +4,7 @@
   "description": "Check your LiteLLM API key balance and usage directly from VS Code status bar",
   "version": "0.1.0",
   "publisher": "litellm-tools",
+  "icon": "icon.png",
   "license": "MIT",
   "repository": {
     "type": "git",
