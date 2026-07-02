@@ -702,14 +702,18 @@ class BalanceStatusBarManager {
   private spendLogsPanel: vscode.WebviewPanel | undefined;
   private keyListPanel: vscode.WebviewPanel | undefined;
 
+  // ── Display Cycling ──────────────────────────────────────────────────
+  private displayCycleIndex = 0;
+  private lastKeyInfo: KeyInfoResponse | null = null;
+
   constructor() {
     this.config = getConfig();
     this.client = new CoreLLMApiClient(this.config);
 
     this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     this.statusBarItem.name = 'CoreLLM';
-    this.statusBarItem.command = 'corellm.refresh';
-    this.statusBarItem.tooltip = 'CoreLLM \u2014 Click to refresh';
+    this.statusBarItem.command = 'corellm.cycleDisplay';
+    this.statusBarItem.tooltip = 'CoreLLM \u2014 Click to cycle display info';
     this.statusBarItem.text = '$(coin) CoreLLM: ...';
     this.statusBarItem.show();
     this.disposables.push(this.statusBarItem);
@@ -745,6 +749,7 @@ class BalanceStatusBarManager {
         this.stopAutoRefresh();
         vscode.window.showInformationMessage('CoreLLM auto-refresh disabled');
       }),
+      vscode.commands.registerCommand('corellm.cycleDisplay', () => this.cycleDisplay()),
       vscode.commands.registerCommand('corellm.showAbout', () => {
         vscode.window.showInformationMessage(
           `CoreLLM v${CURRENT_VERSION} — Monitor LiteLLM API key balances and usage.`,
@@ -925,28 +930,70 @@ class BalanceStatusBarManager {
 
   // ── Status Bar ──────────────────────────────────────────────────────────
 
-  private computeDisplay(data: KeyInfoResponse): StatusBarDisplay {
+  private cycleDisplay(): void {
+    if (!this.lastKeyInfo) {
+      this.refresh();
+      return;
+    }
+    this.displayCycleIndex = (this.displayCycleIndex + 1) % 4;
+    const display = this.computeDisplay(this.lastKeyInfo, this.displayCycleIndex);
+    this.statusBarItem.text = display.text;
+    this.statusBarItem.tooltip = display.tooltip;
+    this.statusBarItem.color = display.color ?? undefined;
+  }
+
+  private computeDisplay(data: KeyInfoResponse, mode?: number): StatusBarDisplay {
     const spend = data.spend ?? 0;
     const maxBudget = data.max_budget ?? null;
     const keyAlias = data.key_alias || data.key_name || '';
+    const m = mode ?? this.displayCycleIndex;
     let remaining: number | null = null;
-    let pctRemaining = 100;
+    let usedPct = 0;
 
     if (maxBudget !== null && maxBudget > 0) {
       remaining = Math.max(0, maxBudget - spend);
-      pctRemaining = 100 - (spend / maxBudget) * 100;
+      usedPct = (spend / maxBudget) * 100;
     }
+    const pctRemaining = maxBudget !== null && maxBudget > 0 ? 100 - usedPct : 100;
     const prefix = this.config.showKeyAlias && keyAlias ? `${keyAlias}: ` : '';
     let text: string;
     let color: string | undefined;
 
-    if (maxBudget !== null && maxBudget > 0) {
-      text = `$(coin) ${prefix}$${remaining?.toFixed(2)} left`;
-      if (pctRemaining <= this.config.budgetWarningThreshold) {
-        color = new vscode.ThemeColor('statusBarItem.warningForeground')?.toString() || '#ffcc00';
-      }
-    } else {
-      text = `$(coin) ${prefix}$${spend.toFixed(2)} spent`;
+    const hasBudget = maxBudget !== null && maxBudget > 0;
+
+    switch (m) {
+      case 0: // Remaining budget
+        if (hasBudget) {
+          text = `$(coin) ${prefix}$${remaining!.toFixed(2)} left`;
+          if (pctRemaining <= this.config.budgetWarningThreshold) {
+            color = new vscode.ThemeColor('statusBarItem.warningForeground')?.toString() || '#ffcc00';
+          }
+        } else {
+          text = `$(coin) ${prefix}$${spend.toFixed(2)} spent`;
+        }
+        break;
+      case 1: // Usage percentage
+        if (hasBudget) {
+          text = `$(coin) ${prefix}${usedPct.toFixed(1)}% used`;
+          if (pctRemaining <= this.config.budgetWarningThreshold) {
+            color = new vscode.ThemeColor('statusBarItem.warningForeground')?.toString() || '#ffcc00';
+          }
+        } else {
+          text = `$(coin) ${prefix}$${spend.toFixed(2)} spent`;
+        }
+        break;
+      case 2: // Total spend (consumed)
+        text = `$(coin) ${prefix}$${spend.toFixed(2)} spent`;
+        break;
+      case 3: // Budget total
+        if (hasBudget) {
+          text = `$(coin) ${prefix}$${maxBudget!.toFixed(2)} budget`;
+        } else {
+          text = `$(coin) ${prefix}unlimited`;
+        }
+        break;
+      default:
+        text = `$(coin) ${prefix}$${spend.toFixed(2)} spent`;
     }
     return { text, tooltip: this.buildTooltip(data), color };
   }
@@ -1002,7 +1049,9 @@ class BalanceStatusBarManager {
           }
         } catch { /* fallback failed, keep original data */ }
       }
-      const display = this.computeDisplay(data);
+      this.lastKeyInfo = data;
+      this.displayCycleIndex = 0;
+      const display = this.computeDisplay(data, 0);
       this.statusBarItem.text = display.text;
       this.statusBarItem.tooltip = display.tooltip;
       this.statusBarItem.color = display.color ?? undefined;
