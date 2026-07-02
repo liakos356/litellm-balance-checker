@@ -1006,13 +1006,71 @@ class BalanceStatusBarManager {
 
 let manager: BalanceStatusBarManager | undefined;
 
+// ─── Update Checker ─────────────────────────────────────────────────────────
+
+const EXTENSION_ID = 'litellm-tools.litellm-balance-checker';
+const GITHUB_REPO = 'liakos356/litellm-balance-checker';
+const CURRENT_VERSION = '0.1.0';
+
+async function checkForUpdates(showUpToDate = false): Promise<void> {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+      headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'litellm-balance-checker-vscode' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return;
+    const data = await res.json() as { tag_name?: string; html_url?: string; name?: string };
+    const latestTag = (data.tag_name || data.name || '').replace(/^v/, '');
+    if (!latestTag) return;
+
+    // Compare semver (simple string compare works for 0.x.y)
+    if (compareVersions(latestTag, CURRENT_VERSION) > 0) {
+      const action = await vscode.window.showInformationMessage(
+        `LiteLLM Balance Checker v${latestTag} available! (current: v${CURRENT_VERSION})`,
+        'Download',
+        'Dismiss'
+      );
+      if (action === 'Download' && data.html_url) {
+        vscode.env.openExternal(vscode.Uri.parse(data.html_url));
+      }
+    } else if (showUpToDate) {
+      vscode.window.showInformationMessage(`LiteLLM Balance Checker is up to date (v${CURRENT_VERSION}).`);
+    }
+  } catch {
+    // Silent fail — network issue, no update check
+    if (showUpToDate) {
+      vscode.window.showInformationMessage(`Could not check for updates. Are you online?`);
+    }
+  }
+}
+
+/** Simple semver compare. Returns >0 if a>b, <0 if a<b, 0 if equal. */
+function compareVersions(a: string, b: string): number {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const na = pa[i] || 0;
+    const nb = pb[i] || 0;
+    if (na !== nb) return na - nb;
+  }
+  return 0;
+}
+
+// ─── Activation ──────────────────────────────────────────────────────────────
+
 export function activate(context: vscode.ExtensionContext): void {
   console.log('LiteLLM Balance Checker activating...');
+
+  // Register update command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('litellm-balance-checker.checkForUpdates', () => checkForUpdates(true))
+  );
+
   manager = new BalanceStatusBarManager();
   context.subscriptions.push(manager);
 
   const config = getConfig();
-  if (!config.apiKey && !config.adminKey) {
+  if (!config.apiKey && !config.adminKey && !config.username) {
     vscode.window.showInformationMessage(
       'LiteLLM Balance Checker: Configure your API key in settings to get started.',
       'Open Settings'
@@ -1022,6 +1080,10 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     });
   }
+
+  // Check for updates silently on startup (once per session)
+  setTimeout(() => checkForUpdates(), 5000);
+
   console.log('LiteLLM Balance Checker activated');
 }
 

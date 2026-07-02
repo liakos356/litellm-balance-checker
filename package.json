@@ -49,6 +49,10 @@
       {
         "command": "litellm-balance-checker.setReportDuration",
         "title": "LiteLLM: Set Report Duration"
+      },
+      {
+        "command": "litellm-balance-checker.checkForUpdates",
+        "title": "LiteLLM: Check for Updates"
       }
     ],
     "configuration": {
