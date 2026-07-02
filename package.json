@@ -1,0 +1,96 @@
+{
+  "name": "litellm-balance-checker",
+  "displayName": "LiteLLM Balance Checker",
+  "description": "Check your LiteLLM API key balance and usage directly from VS Code status bar",
+  "version": "0.1.0",
+  "publisher": "litellm-tools",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "litellm-balance-checker.refresh",
+        "title": "LiteLLM: Refresh Balance"
+      },
+      {
+        "command": "litellm-balance-checker.openSettings",
+        "title": "LiteLLM: Open Balance Checker Settings"
+      },
+      {
+        "command": "litellm-balance-checker.toggleAutoRefresh",
+        "title": "LiteLLM: Toggle Auto-Refresh"
+      }
+    ],
+    "configuration": {
+      "title": "LiteLLM Balance Checker",
+      "properties": {
+        "litellm-balance-checker.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Your LiteLLM API key to check balance for. If empty, the Authorization header will use the key being queried."
+        },
+        "litellm-balance-checker.adminKey": {
+          "type": "string",
+          "default": "",
+          "description": "Admin/proxy master key (if required) for querying key info. Leave empty if using the same key as apiKey."
+        },
+        "litellm-balance-checker.endpoint": {
+          "type": "string",
+          "default": "http://core.llm",
+          "description": "The LiteLLM proxy endpoint URL (e.g., http://localhost:4000 or http://core.llm)"
+        },
+        "litellm-balance-checker.refreshInterval": {
+          "type": "number",
+          "default": 60,
+          "minimum": 5,
+          "description": "Auto-refresh interval in seconds (minimum 5). Set to 0 to disable auto-refresh."
+        },
+        "litellm-balance-checker.showKeyAlias": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the key alias/name in the status bar next to the balance"
+        },
+        "litellm-balance-checker.showSpendLogs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also display recent spend in the status bar (uses /spend/logs)"
+        },
+        "litellm-balance-checker.budgetWarningThreshold": {
+          "type": "number",
+          "default": 20,
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Warning threshold percentage. When remaining budget falls below this % of max_budget, show a warning."
+        },
+        "litellm-balance-checker.keyToQuery": {
+          "type": "string",
+          "default": "",
+          "description": "Optional: Query a specific key (different from the auth key). If empty, queries the key used for authentication."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0"
+  }
+}
