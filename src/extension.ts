@@ -590,7 +590,7 @@ ${modelChartData.length > 0 ? `
   </tr>`).join('')}</tbody></table>` : '<p style="opacity:.6">No recent spend logs.</p>'}
 </div>
 
-<div class="footer">LiteLLM Balance Checker \u00B7 ${new Date().toLocaleString()}</div>
+<div class="footer">LiteLLM Balance Checker \u00B7 Total spend: ${usd(totalSpend)} \u00B7 ${providerCount} provider(s) \u00B7 ${globalReport.length} day(s) \u00B7 ${new Date().toLocaleString()}</div>
 </body>
 </html>`;
 }
@@ -635,7 +635,7 @@ ${logs.length > 0 ? `
   <td>${usd(l.spend, 6)}</td>
   <td>${(l.total_tokens ?? 0).toLocaleString()}</td>
 </tr>`).join('')}</tbody></table>` : '<p>No spend logs found.</p>'}
-<div class="footer">Updated: ${new Date().toLocaleString()}</div>
+<div class="footer">Total: ${usd(logs.reduce((s, l) => s + (l.spend ?? 0), 0), 4)} \u00B7 ${logs.length} entries \u00B7 ${logs.reduce((s, l) => s + (l.total_tokens ?? 0), 0).toLocaleString()} tokens \u00B7 ${new Date().toLocaleString()}</div>
 </body>
 </html>`;
 }
@@ -683,7 +683,7 @@ ${keys.length > 0 ? `<p>${keys.length} key(s) found.</p>
     <td>${k.team_id ? `<span class="badge">${escapeHtml(k.team_id)}</span>` : '\u2014'}</td>
   </tr>`;
 }).join('')}</tbody></table>` : '<p>No keys found.</p>'}
-<div class="footer">Updated: ${new Date().toLocaleString()}</div>
+<div class="footer">${keys.length} key(s) · Total spend: ${usd(keys.reduce((s, k) => s + (k.spend ?? 0), 0), 4)} · Total budget: ${usd(keys.reduce((s, k) => s + (k.max_budget ?? 0), 0))} · ${new Date().toLocaleString()}</div>
 </body>
 </html>`;
 }
