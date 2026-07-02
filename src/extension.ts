@@ -286,6 +286,78 @@ function usd(v: number | null | undefined, decimals = 2): string {
 
 // ─── Budget Overview Panel HTML ──────────────────────────────────────────────
 
+// ─── Chart helpers ───────────────────────────────────────────────────────────
+
+/** Build an SVG horizontal bar chart. Returns empty string if data is empty. */
+function svgHBarChart(
+  items: { label: string; value: number; color?: string }[],
+  maxValue: number,
+  width = 300,
+  barHeight = 18,
+  gap = 4,
+): string {
+  if (items.length === 0) return '';
+  const m = maxValue > 0 ? maxValue : 1;
+  const totalH = items.length * (barHeight + gap);
+  const labelW = 80;
+  const valW = 60;
+  const barW = width - labelW - valW - 10;
+  const colors = ['#4ec9b0', '#e2b714', '#f14c4c', '#569cd6', '#ce9178', '#6a9955', '#c586c0', '#dcdcaa'];
+
+  const bars = items.map((it, i) => {
+    const y = i * (barHeight + gap);
+    const bw = (it.value / m) * barW;
+    const c = it.color || colors[i % colors.length];
+    return `<text x="0" y="${y + barHeight - 4}" font-size="11" fill="var(--vscode-foreground)">${escapeHtml(it.label.length > 10 ? it.label.slice(0, 10) + '..' : it.label)}</text>
+      <rect x="${labelW}" y="${y}" width="${Math.max(2, bw)}" height="${barHeight}" rx="3" fill="${c}" opacity="0.85"/>
+      <text x="${labelW + Math.max(2, bw) + 4}" y="${y + barHeight - 4}" font-size="10" fill="var(--vscode-foreground)">${usd(it.value, 4)}</text>`;
+  }).join('\n    ');
+
+  return `<svg width="${width}" height="${totalH}" viewBox="0 0 ${width} ${totalH}" style="display:block;margin:8px 0">${bars}</svg>`;
+}
+
+/** Build a simple SVG donut chart. Returns empty string if data is empty. */
+function svgDonut(
+  items: { label: string; value: number }[],
+  size = 140,
+  thickness = 28,
+): string {
+  if (items.length === 0) return '';
+  const total = items.reduce((s, i) => s + i.value, 0);
+  if (total === 0) return '';
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = (size - thickness) / 2;
+  const colors = ['#4ec9b0', '#569cd6', '#ce9178', '#e2b714', '#c586c0', '#6a9955', '#f14c4c', '#dcdcaa'];
+  let angle = -90;
+  const slices = items.slice(0, 8).map((it, i) => {
+    const pct = it.value / total;
+    const a = pct * 360;
+    const start = angle;
+    const end = angle + a;
+    angle = end;
+    const sr = ((start - 90) * Math.PI) / 180;
+    const er = ((end - 90) * Math.PI) / 180;
+    const x1 = cx + r * Math.cos(sr);
+    const y1 = cy + r * Math.sin(sr);
+    const x2 = cx + r * Math.cos(er);
+    const y2 = cy + r * Math.sin(er);
+    const large = a > 180 ? 1 : 0;
+    const color = colors[i % colors.length];
+    return `<path d="M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z" fill="${color}" opacity="0.85"/>
+      <text x="${cx + (r * 0.55) * Math.cos(sr + (er - sr) / 2)}" y="${cy + (r * 0.55) * Math.sin(sr + (er - sr) / 2)}" font-size="9" fill="#fff" text-anchor="middle" dominant-baseline="central">${(pct * 100).toFixed(0)}%</text>`;
+  }).join('\n    ');
+  // center hole (donut)
+  const holeR = r - thickness;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="display:block;margin:8px auto">${slices}
+    <circle cx="${cx}" cy="${cy}" r="${holeR}" fill="var(--vscode-editor-background)"/>
+    <text x="${cx}" y="${cy - 4}" font-size="18" font-weight="700" fill="var(--vscode-foreground)" text-anchor="middle" dominant-baseline="central">${usd(total)}</text>
+    <text x="${cx}" y="${cy + 14}" font-size="9" fill="var(--vscode-foreground)" opacity=".6" text-anchor="middle">total</text>
+  </svg>`;
+}
+
+// ─── Budget Overview Panel HTML ──────────────────────────────────────────────
+
 function buildBudgetOverviewHtml(data: {
   keyInfo: KeyInfoResponse | null;
   providerBudgets: ProviderBudgetResponse | null;
@@ -300,9 +372,13 @@ function buildBudgetOverviewHtml(data: {
   // Aggregate from report
   let totalSpend = 0;
   let totalRequests = 0;
+  const dailyData: { label: string; spend: number }[] = [];
   for (const day of globalReport) {
+    const ds = day.teams?.reduce((s, t) => s + (t.spend ?? 0), 0) ?? 0;
+    totalSpend += ds;
+    const label = day['group-by-day'] ? day['group-by-day'].slice(5) : '?';
+    dailyData.push({ label, spend: ds });
     for (const team of day.teams ?? []) {
-      totalSpend += team.spend ?? 0;
       for (const k of team.keys ?? []) {
         for (const usage of Object.values(k.usage ?? {})) {
           totalRequests += usage.requests ?? 0;
@@ -310,15 +386,43 @@ function buildBudgetOverviewHtml(data: {
       }
     }
   }
+  const maxDailySpend = Math.max(...dailyData.map(d => d.spend), 1);
 
+  // Provider data for charts
   const providers = providerBudgets?.providers;
   const providerCount = providers ? Object.keys(providers).length : 0;
+  const providerChartData = providers
+    ? Object.entries(providers)
+        .map(([name, p]) => ({ label: name, value: p.spend ?? 0 }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 8)
+    : [];
+
+  // Model usage from spend logs
+  const modelMap = new Map<string, number>();
+  for (const log of spendLogs) {
+    const m = log.model || 'unknown';
+    modelMap.set(m, (modelMap.get(m) ?? 0) + (log.spend ?? 0));
+  }
+  const modelChartData = [...modelMap.entries()]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+
   const alias = keyInfo?.key_alias || keyInfo?.key_name || keyInfo?.key || '\u2014';
   const spend = keyInfo?.spend ?? 0;
   const maxB = keyInfo?.max_budget;
   const remaining = maxB != null ? Math.max(0, maxB - spend) : null;
   const usedPct = maxB != null && maxB > 0 ? ((spend / maxB) * 100) : 0;
   const barColor = usedPct > 80 ? 'red' : usedPct > 50 ? 'yellow' : 'green';
+
+  const dailyChart = dailyData.length > 0 ? svgHBarChart(
+    dailyData.map(d => ({ label: d.label, value: d.spend })),
+    maxDailySpend, 320, 20, 4,
+  ) : '';
+
+  const providerChart = providerChartData.length > 0 ? svgHBarChart(providerChartData, providerChartData[0]?.value || 1, 320) : '';
+  const modelDonut = modelChartData.length > 0 ? svgDonut(modelChartData, 140, 28) : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -348,10 +452,16 @@ function buildBudgetOverviewHtml(data: {
   .bar-fill.green{background:var(--vscode-editorGutter-addedForeground,#4ec9b0)}
   .bar-fill.yellow{background:var(--vscode-editorWarning-foreground,#e2b714)}
   .bar-fill.red{background:var(--vscode-errorForeground,#f14c4c)}
+  .chart-row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;justify-content:center}
+  .legend{font-size:.75em;margin-top:4px}
+  .legend-item{display:inline-block;margin-right:12px;white-space:nowrap}
+  .legend-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
 </style>
 </head>
 <body>
 <h2>\u{1F4CA} LiteLLM Budget Overview</h2>
+
+<!-- Key Info Card -->
 <div class="card">
   <h3>\u{1F511} Key: ${escapeHtml(alias)}</h3>
   <div class="grid">
@@ -363,10 +473,13 @@ function buildBudgetOverviewHtml(data: {
   ${maxB != null && maxB > 0 ? `<div class="bar-container"><div class="bar-fill ${barColor}" style="width:${Math.min(100, usedPct)}%"></div></div>` : ''}
   ${keyError ? `<div class="error-box">\u26A0 ${escapeHtml(keyError)}</div>` : ''}
 </div>
+
+<!-- Provider Budgets Card -->
 <div class="card">
   <h3>\u2601\uFE0F Provider Budgets ${providerCount > 0 ? `<span class="badge">${providerCount}</span>` : ''}</h3>
   ${providerError ? `<div class="error-box">\u26A0 ${escapeHtml(providerError)}</div>` : ''}
   ${providers && providerCount > 0 ? `
+  <div class="chart-row">${providerChart}</div>
   <table>
     <thead><tr><th>Provider</th><th>Spend</th><th>Budget Limit</th><th>Used</th><th>Period</th><th>Resets</th></tr></thead>
     <tbody>
@@ -387,21 +500,35 @@ function buildBudgetOverviewHtml(data: {
     </tbody>
   </table>` : '<p style="opacity:.6">No provider budgets configured.</p>'}
 </div>
+
+<!-- Global Spend Report Card -->
 <div class="card">
-  <h3>\uD83C\uDF10 Global Spend Report (7d) <span class="badge">${globalReport.length} days</span></h3>
+  <h3>\uD83C\uDF10 Daily Spend (7d) <span class="badge">${globalReport.length} days</span></h3>
   ${reportError ? `<div class="error-box">\u26A0 ${escapeHtml(reportError)}</div>` : ''}
   ${globalReport.length > 0 ? `
   <div class="grid" style="margin-bottom:12px">
     <div class="stat"><div class="stat-value">${usd(totalSpend)}</div><div class="stat-label">Total 7d Spend</div></div>
     <div class="stat"><div class="stat-value">${totalRequests.toLocaleString()}</div><div class="stat-label">Requests</div></div>
   </div>
-  <table><thead><tr><th>Date</th><th>Teams</th><th>Spend</th></tr></thead>
-  <tbody>${globalReport.map(d => {
-    const tc = d.teams?.length ?? 0;
-    const ds = d.teams?.reduce((s, t) => s + (t.spend ?? 0), 0) ?? 0;
-    return `<tr><td>${d['group-by-day'] ?? '\u2014'}</td><td>${tc}</td><td>${usd(ds)}</td></tr>`;
-  }).join('')}</tbody></table>` : '<p style="opacity:.6">No global spend data.</p>'}
+  <div class="chart-row">${dailyChart}</div>` : '<p style="opacity:.6">No global spend data.</p>'}
 </div>
+
+<!-- Model Usage Card (from spend logs) -->
+${modelChartData.length > 0 ? `
+<div class="card">
+  <h3>\u{1F4CA} Model Spend Breakdown</h3>
+  <div class="chart-row" style="align-items:center">
+    ${modelDonut}
+    <div class="legend">
+      ${modelChartData.map((m, i) => {
+        const colors = ['#4ec9b0', '#569cd6', '#ce9178', '#e2b714', '#c586c0', '#6a9955', '#f14c4c', '#dcdcaa'];
+        return `<div class="legend-item"><span class="legend-dot" style="background:${colors[i % colors.length]}"></span>${escapeHtml(m.label.length > 15 ? m.label.slice(0, 15) + '..' : m.label)} ${usd(m.value)}</div>`;
+      }).join('')}
+    </div>
+  </div>
+</div>` : ''}
+
+<!-- Recent Spend Logs Card -->
 <div class="card">
   <h3>\uD83D\uDCDD Recent Spend Logs <span class="badge">${spendLogs.length}</span></h3>
   ${spendLogs.length > 0 ? `
@@ -414,6 +541,7 @@ function buildBudgetOverviewHtml(data: {
     <td>${(l.total_tokens ?? 0).toLocaleString()}</td>
   </tr>`).join('')}</tbody></table>` : '<p style="opacity:.6">No recent spend logs.</p>'}
 </div>
+
 <div class="footer">LiteLLM Balance Checker \u00B7 ${new Date().toLocaleString()}</div>
 </body>
 </html>`;
