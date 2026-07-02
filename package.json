@@ -32,6 +32,18 @@
       {
         "command": "litellm-balance-checker.toggleAutoRefresh",
         "title": "LiteLLM: Toggle Auto-Refresh"
+      },
+      {
+        "command": "litellm-balance-checker.showBudgetOverview",
+        "title": "LiteLLM: Show Budget Overview"
+      },
+      {
+        "command": "litellm-balance-checker.showSpendLogs",
+        "title": "LiteLLM: Show Spend Logs"
+      },
+      {
+        "command": "litellm-balance-checker.listKeys",
+        "title": "LiteLLM: List All Keys"
       }
     ],
     "configuration": {
