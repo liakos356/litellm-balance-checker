@@ -1242,6 +1242,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   manager = new BalanceStatusBarManager();
   context.subscriptions.push(manager);
+  manager.start();
 
   const config = getConfig();
   if (!config.apiKey && !config.adminKey && !config.username) {
