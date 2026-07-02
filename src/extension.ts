@@ -796,6 +796,22 @@ class BalanceStatusBarManager {
     ]);
     if (results[0].status === 'fulfilled') keyInfo = results[0].value;
     else keyError = (results[0].reason as Error)?.message ?? 'Unknown error';
+    // Fall back to /key/list if keyInfo has no spend and no keyToQuery is set
+    if (keyInfo && !(keyInfo.spend ?? 0) && !this.config.keyToQuery) {
+      try {
+        const list = await this.client.fetchKeyList(1, 50);
+        const firstWithSpend = (list.keys ?? []).find(k => (k.spend ?? 0) > 0);
+        if (firstWithSpend) {
+          keyInfo = {
+            ...keyInfo,
+            spend: firstWithSpend.spend,
+            max_budget: firstWithSpend.max_budget,
+            key_alias: firstWithSpend.key_alias || keyInfo.key_alias,
+            key_name: firstWithSpend.key_name || keyInfo.key_name,
+          };
+        }
+      } catch { /* fallback failed, keep original keyInfo */ }
+    }
     if (results[1].status === 'fulfilled') providerBudgets = results[1].value;
     else providerError = (results[1].reason as Error)?.message ?? 'Unknown error';
     if (results[2].status === 'fulfilled') globalReport = results[2].value;
@@ -968,7 +984,24 @@ class BalanceStatusBarManager {
 
   async refresh(): Promise<void> {
     try {
-      const data = await this.client.fetchKeyInfo();
+      let data = await this.client.fetchKeyInfo();
+      // If keyInfo returned zero spend and no specific key is targeted,
+      // fall back to /key/list to find the first key with actual spend
+      if (!(data.spend ?? 0) && !this.config.keyToQuery) {
+        try {
+          const list = await this.client.fetchKeyList(1, 50);
+          const firstWithSpend = (list.keys ?? []).find(k => (k.spend ?? 0) > 0);
+          if (firstWithSpend) {
+            data = {
+              ...data,
+              spend: firstWithSpend.spend,
+              max_budget: firstWithSpend.max_budget,
+              key_alias: firstWithSpend.key_alias || data.key_alias,
+              key_name: firstWithSpend.key_name || data.key_name,
+            };
+          }
+        } catch { /* fallback failed, keep original data */ }
+      }
       const display = this.computeDisplay(data);
       this.statusBarItem.text = display.text;
       this.statusBarItem.tooltip = display.tooltip;
