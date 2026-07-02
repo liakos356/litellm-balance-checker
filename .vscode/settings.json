@@ -1,0 +1,8 @@
+{
+  // ⚠️ Add your API key here or in User settings (Cmd+,)
+  // "litellm-balance-checker.apiKey": "sk-your-key-here",
+  "litellm-balance-checker.endpoint": "http://core.llm",
+  "litellm-balance-checker.refreshInterval": 60,
+  "litellm-balance-checker.showKeyAlias": true,
+  "litellm-balance-checker.budgetWarningThreshold": 20
+}

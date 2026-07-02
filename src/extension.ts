@@ -147,7 +147,15 @@ class LiteLLMApiClient {
     const res = await fetch(url.toString(), { method: 'GET', headers: this.getHeaders() });
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`API ${res.status} on ${path}: ${text.slice(0, 250)}`);
+      const snippet = text.slice(0, 300);
+      // Detect 403 "key not allowed" — common for llm_api type keys
+      if (res.status === 403 && snippet.includes('not allowed to call this route')) {
+        throw new Error(
+          `Your API key lacks management permissions (403 on ${path}). ` +
+          `Use an admin/proxy master key in the "adminKey" setting.`
+        );
+      }
+      throw new Error(`API ${res.status} on ${path}: ${snippet}`);
     }
     return res.json() as Promise<T>;
   }
@@ -188,6 +196,16 @@ class LiteLLMApiClient {
     return this.apiGet<KeyListResponse>('/key/list', {
       page: String(page), size: String(size), return_full_object: 'true',
     });
+  }
+
+  /** GET /v1/models — list accessible models */
+  async fetchModels(): Promise<string[]> {
+    try {
+      const data = await this.apiGet<{ data?: Array<{ id?: string }> }>('/v1/models');
+      return data?.data?.map((m) => m.id ?? '').filter(Boolean) ?? [];
+    } catch {
+      return [];
+    }
   }
 
   /** GET /user/daily/activity — daily spend/usage breakdown */
@@ -645,9 +663,23 @@ class BalanceStatusBarManager {
       if (this.config.showSpendLogs) this.fetchAndAppendSpendLogs();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.statusBarItem.text = '$(error) LiteLLM: Error';
-      this.statusBarItem.tooltip = `LiteLLM Balance Checker \u2014 Error: ${msg}`;
-      this.statusBarItem.color = new vscode.ThemeColor('statusBarItem.errorForeground');
+      // If management endpoints are blocked, try to at least show models
+      if (msg.includes('lacks management permissions')) {
+        const models = await this.client.fetchModels();
+        this.statusBarItem.text = '$(key) LiteLLM: LLM key (limited)';
+        const modelList = models.length > 0 ? `\n\n**Accessible models:** ${models.slice(0, 6).join(', ')}${models.length > 6 ? ` +${models.length - 6}` : ''}` : '';
+        this.statusBarItem.tooltip =
+          `**LiteLLM Balance Checker**\n\n` +
+          `⚠️ This key cannot access management endpoints.\n` +
+          `To see balance/budget, set an admin key in the settings.\n` +
+          `Or use "keyToQuery" with this key + adminKey as proxy master.` +
+          modelList;
+        this.statusBarItem.color = new vscode.ThemeColor('statusBarItem.warningForeground');
+      } else {
+        this.statusBarItem.text = '$(error) LiteLLM: Error';
+        this.statusBarItem.tooltip = `LiteLLM Balance Checker \u2014 Error: ${msg}`;
+        this.statusBarItem.color = new vscode.ThemeColor('statusBarItem.errorForeground');
+      }
       if (!this.timer) vscode.window.showWarningMessage(`LiteLLM Balance: ${msg}`);
     }
   }
