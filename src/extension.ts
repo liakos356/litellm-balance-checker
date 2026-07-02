@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as os from 'os';
+import * as fs from 'fs';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1016,28 +1018,46 @@ async function checkForUpdates(showUpToDate = false): Promise<void> {
   try {
     const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
       headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'litellm-balance-checker-vscode' },
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) return;
-    const data = await res.json() as { tag_name?: string; html_url?: string; name?: string };
+    const data = await res.json() as { tag_name?: string; html_url?: string; name?: string; assets?: Array<{ name: string; browser_download_url: string }> };
     const latestTag = (data.tag_name || data.name || '').replace(/^v/, '');
     if (!latestTag) return;
 
-    // Compare semver (simple string compare works for 0.x.y)
     if (compareVersions(latestTag, CURRENT_VERSION) > 0) {
+      const vsixAsset = data.assets?.find((a) => a.name.endsWith('.vsix'));
+      const actions = vsixAsset ? ['Update & Reload', 'Download', 'Dismiss'] : ['Download', 'Dismiss'];
       const action = await vscode.window.showInformationMessage(
         `LiteLLM Balance Checker v${latestTag} available! (current: v${CURRENT_VERSION})`,
-        'Download',
-        'Dismiss'
+        ...actions
       );
-      if (action === 'Download' && data.html_url) {
+
+      if (action === 'Update & Reload' && vsixAsset) {
+        // Download and auto-install
+        await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Notification, title: 'Downloading update...' },
+          async () => {
+            const dl = await fetch(vsixAsset.browser_download_url);
+            if (!dl.ok) throw new Error('Download failed');
+            const buf = Buffer.from(await dl.arrayBuffer());
+            const tmpPath = `${os.tmpdir()}/litellm-balance-checker-${latestTag}.vsix`;
+            fs.writeFileSync(tmpPath, buf);
+            // Install via VS Code's internal command
+            await vscode.commands.executeCommand('workbench.extensions.installExtension', vscode.Uri.file(tmpPath));
+          }
+        );
+        const reload = await vscode.window.showInformationMessage(
+          'Update installed! Reload now to apply.', 'Reload Now'
+        );
+        if (reload) vscode.commands.executeCommand('workbench.action.reloadWindow');
+      } else if (action === 'Download' && data.html_url) {
         vscode.env.openExternal(vscode.Uri.parse(data.html_url));
       }
     } else if (showUpToDate) {
       vscode.window.showInformationMessage(`LiteLLM Balance Checker is up to date (v${CURRENT_VERSION}).`);
     }
   } catch {
-    // Silent fail — network issue, no update check
     if (showUpToDate) {
       vscode.window.showInformationMessage(`Could not check for updates. Are you online?`);
     }
