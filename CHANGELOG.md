@@ -2,6 +2,12 @@
 
 All notable changes to the CoreLLM VS Code extension.
 
+## 0.8.3
+
+- **Removed:** Admin-only budget features (Provider Budgets, Global Spend Report) from the Budget Overview panel — non-admin users no longer see auth error boxes
+- **Improved:** Budget Overview now only uses `/key/info` and `/spend/logs` endpoints, which work with a simple user API key
+- **Simplified:** Removed date range selector and admin permissions banner from Budget Overview
+
 ## 0.8.2
 
 - **Fixed:** Update checker only checked GitHub Releases (v0.8.0), missing newer git tags (v0.8.1). Now always checks tags too and uses whichever is newer.

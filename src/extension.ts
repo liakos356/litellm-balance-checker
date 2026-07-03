@@ -75,81 +75,11 @@ import {
 
 function buildBudgetOverviewHtml(data: {
   keyInfo: KeyInfoResponse | null;
-  providerBudgets: ProviderBudgetResponse | null;
-  globalReport: GlobalSpendReportEntry[];
   spendLogs: SpendLogEntry[];
   keyError: string | null;
-  providerError: string | null;
-  reportError: string | null;
-  durationLabel?: string;
-  dateRange?: string;
-  currentDuration?: string;
-  customStart?: string;
-  customEnd?: string;
   activeTheme?: string;
 }): string {
-  const {
-    keyInfo,
-    providerBudgets,
-    globalReport,
-    spendLogs,
-    keyError,
-    providerError,
-    reportError,
-    durationLabel,
-    dateRange,
-    currentDuration,
-    customStart,
-    customEnd,
-    activeTheme,
-  } = data;
-
-  // Aggregate from report
-  let totalSpend = 0;
-  let totalRequests = 0;
-  let totalTokens = 0;
-  const dailyData: { label: string; spend: number }[] = [];
-  for (const day of globalReport) {
-    const ds = day.teams?.reduce((s, t) => s + (t.spend ?? 0), 0) ?? 0;
-    totalSpend += ds;
-    const label = day["group-by-day"] ? day["group-by-day"].slice(5) : "?";
-    dailyData.push({ label, spend: ds });
-    for (const team of day.teams ?? []) {
-      for (const k of team.keys ?? []) {
-        for (const usage of Object.values(k.usage ?? {})) {
-          totalRequests += usage.requests ?? 0;
-          totalTokens += (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0);
-        }
-      }
-    }
-  }
-
-  // Fall back to keyInfo.spend if the global report has no data
-  const effectiveTotalSpend =
-    totalSpend > 0 ? totalSpend : (keyInfo?.spend ?? 0);
-  const maxDailySpend = Math.max(...dailyData.map((d) => d.spend), 1);
-
-  // Provider data for charts
-  const providers = providerBudgets?.providers;
-  const providerCount = providers ? Object.keys(providers).length : 0;
-  const providerChartData = providers
-    ? Object.entries(providers)
-        .map(([name, p]) => ({ label: name, value: p.spend ?? 0 }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 8)
-    : [];
-
-  // Model usage from spend logs
-  const modelMap = new Map<string, number>();
-  for (const log of spendLogs) {
-    const m = log.model || "unknown";
-    modelMap.set(m, (modelMap.get(m) ?? 0) + (log.spend ?? 0));
-  }
-
-  const modelChartData = [...modelMap.entries()]
-    .map(([label, value]) => ({ label, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 8);
+  const { keyInfo, spendLogs, keyError, activeTheme } = data;
 
   const alias =
     keyInfo?.key_alias || keyInfo?.key_name || keyInfo?.key || "\u2014";
@@ -159,55 +89,8 @@ function buildBudgetOverviewHtml(data: {
   const usedPct = maxB != null && maxB > 0 ? (spend / maxB) * 100 : 0;
   const barColor = usedPct > 80 ? "red" : usedPct > 50 ? "yellow" : "green";
 
-  const dailyChart =
-    dailyData.length > 0
-      ? svgHBarChart(
-          dailyData.map((d) => ({ label: d.label, value: d.spend })),
-          maxDailySpend,
-          320,
-          20,
-          4,
-        )
-      : "";
-
-  // Line chart for daily spend trend
-  const lineChart =
-    dailyData.length >= 2
-      ? svgLineChart(
-          dailyData.map((d) => ({ label: d.label, value: d.spend })),
-          360,
-          120,
-        )
-      : "";
-
-  const providerChart =
-    providerChartData.length > 0
-      ? svgHBarChart(providerChartData, providerChartData[0]?.value || 1, 320)
-      : "";
-  const modelDonut =
-    modelChartData.length > 0 ? svgDonut(modelChartData, 140, 28) : "";
-
-  // Sparkline for daily spend
-  const spendSparkline =
-    dailyData.length >= 2 ? svgSparkline(dailyData.map((d) => d.spend)) : "";
-
-  // Cost efficiency metrics
-  const avgCostPerRequest =
-    totalRequests > 0 ? effectiveTotalSpend / totalRequests : 0;
-  const avgCostPerToken =
-    totalTokens > 0 ? effectiveTotalSpend / totalTokens : 0;
-
   const theme = activeTheme || "vscode";
   const themeOverride = buildThemeOverrides(theme);
-
-  // Detect permission errors (non-admin user)
-  const permErrorsBudget: string[] = [];
-  for (const err of [providerError, reportError]) {
-    if (err && (err.includes("lacks management permissions") || err.includes("403"))) {
-      permErrorsBudget.push(err);
-    }
-  }
-  const isPermissionsIssueBudget = permErrorsBudget.length > 0;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -225,35 +108,15 @@ function buildBudgetOverviewHtml(data: {
   </span>
 </h2>
 
-<!-- Datepicker Toolbar -->
-<div class="toolbar" id="toolbar">
-  <button class="toolbar-btn${currentDuration === "1h" ? " active" : ""}" data-dur="1h">1h</button>
-  <button class="toolbar-btn${currentDuration === "24h" ? " active" : ""}" data-dur="24h">24h</button>
-  <button class="toolbar-btn${currentDuration === "7d" ? " active" : ""}" data-dur="7d">7d</button>
-  <button class="toolbar-btn${currentDuration === "30d" ? " active" : ""}" data-dur="30d">30d</button>
-  <div class="toolbar-sep"></div>
-  <span class="toolbar-label">From:</span>
-  <input type="date" class="toolbar-date" id="dateStart" value="${customStart || ""}">
-  <span class="toolbar-label">To:</span>
-  <input type="date" class="toolbar-date" id="dateEnd" value="${customEnd || ""}">
-  <button class="toolbar-btn${currentDuration === "custom" ? " active" : ""}" id="applyCustom">Apply</button>
-</div>
-
 <!-- Toast notification -->
 <div class="toast" id="toast"></div>
 
-<!-- Admin permissions banner -->
-${isPermissionsIssueBudget ? `<div class="admin-banner">\u26A0\uFE0F Limited view: some features require an admin/proxy master key. <a href="#" class="admin-banner-link" onclick="(function(){const v=acquireVsCodeApi();v.postMessage({type:'openSettings'})})()">Configure in settings</a></div>` : ""}
-
 <!-- Summary bar -->
 <div class="summary-bar">
-  <div class="summary-item"><div class="summary-value">${usd(effectiveTotalSpend)}</div><div class="summary-label">Total Spend</div></div>
+  <div class="summary-item"><div class="summary-value">${usd(spend, 4)}</div><div class="summary-label">Total Spend</div></div>
   <div class="summary-item"><div class="summary-value">${maxB != null && maxB > 0 ? usedPct.toFixed(1) + "%" : "\u2014"}</div><div class="summary-label">Used</div></div>
   <div class="summary-item"><div class="summary-value ${remaining != null && remaining <= 0 ? "err" : remaining != null && maxB != null && remaining / maxB <= 0.2 ? "warn" : "ok"}">${remaining != null ? usd(remaining, 4) : "\u221E"}</div><div class="summary-label">Remaining</div></div>
-  <div class="summary-item"><div class="summary-value">${totalRequests.toLocaleString()}</div><div class="summary-label">Requests${spendSparkline}</div></div>
-  <div class="summary-item"><div class="summary-value">${providerCount}</div><div class="summary-label">Providers</div></div>
-  <div class="summary-item"><div class="summary-value">${globalReport.length}</div><div class="summary-label">Days</div></div>
-  <div class="summary-item"><div class="summary-value">${usd(avgCostPerRequest, 6)}</div><div class="summary-label">Cost/Req</div></div>
+  <div class="summary-item"><div class="summary-value">${spendLogs.length}</div><div class="summary-label">Recent Logs</div></div>
 </div>
 
 <!-- Key Info Card -->
@@ -269,97 +132,6 @@ ${isPermissionsIssueBudget ? `<div class="admin-banner">\u26A0\uFE0F Limited vie
   ${maxB != null && maxB > 0 ? `<div class="bar-container"><div class="bar-fill ${barColor}" style="width:${Math.min(100, usedPct)}%"></div></div>` : ""}
   ${keyError ? `<div class="error-box">\u26A0 ${escapeHtml(keyError)}</div>` : ""}
 </div>
-
-<!-- Provider Budgets Card -->
-<div class="card">
-  <h3>\u2601\uFE0F Provider Budgets ${providerCount > 0 ? `<span class="badge">${providerCount}</span>` : ""}</h3>
-  ${providerError && !isPermissionsIssueBudget ? `<div class="error-box">\u26A0 ${escapeHtml(providerError)}</div>` : ""}
-  ${
-    providers && providerCount > 0
-      ? `
-  <div class="chart-row">${providerChart}</div>
-  <div class="table-wrap"><table>
-    <thead><tr><th>Provider</th><th>Spend</th><th>Budget Limit</th><th>Used</th><th>Period</th><th>Resets</th></tr></thead>
-    <tbody>
-    ${Object.entries(providers)
-      .map(([name, p]) => {
-        const ps = p.spend ?? 0;
-        const pl = p.budget_limit;
-        const pp = pl && pl > 0 ? (ps / pl) * 100 : 0;
-        const pc = pp > 80 ? "red" : pp > 50 ? "yellow" : "green";
-        return `<tr>
-        <td><strong>${escapeHtml(name)}</strong></td>
-        <td>${usd(ps, 4)}</td>
-        <td>${usd(pl)}</td>
-        <td>${pl && pl > 0 ? pp.toFixed(1) + "%" : "\u2014"}${pl && pl > 0 ? `<div class="bar-container"><div class="bar-fill ${pc}" style="width:${Math.min(100, pp)}%"></div></div>` : ""}</td>
-        <td>${p.time_period ?? "\u2014"}</td>
-        <td>${p.budget_reset_at ? new Date(p.budget_reset_at).toLocaleDateString() : "\u2014"}</td>
-      </tr>`;
-      })
-      .join("")}
-    </tbody></table></div>`
-      : '<div class="empty-state"><span class="empty-icon">\u2601\uFE0F</span><div class="empty-text">No provider budgets configured.</div></div>'
-  }
-</div>
-
-<!-- Global Spend Report Card -->
-<div class="card">
-  <h3>\uD83C\uDF10 Daily Spend ${durationLabel ? "\\(" + durationLabel + "\\)" : ""} <span class="badge">${globalReport.length} days</span></h3>
-  ${dateRange ? `<p style="font-size:.8em;opacity:.6;margin:4px 0 0">${escapeHtml(dateRange)}</p>` : ""}
-  ${reportError && !isPermissionsIssueBudget ? `<div class="error-box">\u26A0 ${escapeHtml(reportError)}</div>` : ""}
-  ${
-    globalReport.length > 0
-      ? `
-  <div class="chart-row" style="flex-direction:column;align-items:stretch">${lineChart}${dailyChart}</div>`
-      : '<div class="empty-state"><span class="empty-icon">\uD83C\uDF10</span><div class="empty-text">No global spend data for the selected period.</div></div>'
-  }
-</div>
-
-<!-- Model Usage Card (from spend logs) -->
-${
-  modelChartData.length > 0
-    ? `
-<div class="card">
-  <h3>\u{1F4CA} Model Spend Breakdown</h3>
-  <div class="chart-row" style="align-items:center">
-    ${modelDonut}
-    <div class="legend">
-      ${modelChartData
-        .map((m, i) => {
-          const colors = [
-            "#4ec9b0",
-            "#569cd6",
-            "#ce9178",
-            "#e2b714",
-            "#c586c0",
-            "#6a9955",
-            "#f14c4c",
-            "#dcdcaa",
-          ];
-          return `<div class="legend-item"><span class="legend-dot" style="background:${colors[i % colors.length]}"></span>${escapeHtml(m.label.length > 15 ? m.label.slice(0, 15) + ".." : m.label)} ${usd(m.value)}</div>`;
-        })
-        .join("")}
-    </div>
-  </div>
-</div>`
-    : ""
-}
-
-<!-- Cost Efficiency Card -->
-${
-  totalRequests > 0
-    ? `
-<div class="card">
-  <h3>\u2699\uFE0F Cost Efficiency</h3>
-  <div class="grid">
-    <div class="stat"><div class="stat-value">${usd(avgCostPerRequest, 6)}</div><div class="stat-label">Avg Cost / Request</div></div>
-    <div class="stat"><div class="stat-value">${totalTokens > 0 ? usd(avgCostPerToken, 8) : "\u2014"}</div><div class="stat-label">Avg Cost / Token</div></div>
-    <div class="stat"><div class="stat-value">${totalTokens.toLocaleString()}</div><div class="stat-label">Total Tokens</div></div>
-    <div class="stat"><div class="stat-value">${totalRequests > 0 && totalTokens > 0 ? Math.round(totalTokens / totalRequests).toLocaleString() : "\u2014"}</div><div class="stat-label">Tokens / Request</div></div>
-  </div>
-</div>`
-    : ""
-}
 
 <!-- Recent Spend Logs Card -->
 <div class="card">
@@ -390,8 +162,7 @@ ${
 <div class="footer">
   <span>CoreLLM \u00B7 Spend: ${usd(spend, 4)}</span>
   <span>${maxB != null && maxB > 0 ? `Used: ${usedPct.toFixed(1)}% \u00B7 Left: ${usd(remaining!, 4)}` : "No budget set"}</span>
-  <span>${providerCount} provider(s) \u00B7 ${globalReport.length} day(s)</span>
-  <span>Cost/req: ${usd(avgCostPerRequest, 6)}</span>
+  <span>${spendLogs.length} log(s)</span>
 </div>
 <script>
 (function() {
@@ -426,28 +197,6 @@ ${
   document.getElementById('exportCsvBtn').addEventListener('click', function() {
     vscode.postMessage({ type: 'exportCsv' });
     showToast('Exporting data\u2026');
-  });
-
-  // Preset duration buttons
-  document.querySelectorAll('[data-dur]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      vscode.postMessage({ type: 'setDuration', duration: btn.dataset.dur });
-    });
-  });
-
-  // Apply custom date range
-  document.getElementById('applyCustom').addEventListener('click', () => {
-    const start = document.getElementById('dateStart').value;
-    const end = document.getElementById('dateEnd').value;
-    if (!start || !end) return;
-    vscode.postMessage({ type: 'setCustomDates', startDate: start, endDate: end });
-  });
-
-  document.getElementById('dateStart').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') document.getElementById('applyCustom').click();
-  });
-  document.getElementById('dateEnd').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') document.getElementById('applyCustom').click();
   });
 
   // Copy key to clipboard
@@ -1696,72 +1445,28 @@ class BalanceStatusBarManager {
 
   // ── Budget Overview ──────────────────────────────────────────────────────
 
-  private async fetchBudgetData(duration: ReportDuration): Promise<{
+  private async fetchBudgetData(): Promise<{
     keyInfo: KeyInfoResponse | null;
-    providerBudgets: ProviderBudgetResponse | null;
-    globalReport: GlobalSpendReportEntry[];
     spendLogs: SpendLogEntry[];
     keyError: string | null;
-    providerError: string | null;
-    reportError: string | null;
   }> {
-    const dr = getDateRange(
-      duration,
-      this.config.reportCustomStart,
-      this.config.reportCustomEnd,
-    );
     let keyInfo: KeyInfoResponse | null = null;
-    let providerBudgets: ProviderBudgetResponse | null = null;
-    let globalReport: GlobalSpendReportEntry[] = [];
     let spendLogs: SpendLogEntry[] = [];
     let keyError: string | null = null;
-    let providerError: string | null = null;
-    let reportError: string | null = null;
 
-    const results = await Promise.allSettled([
-      this.client.fetchKeyInfo(),
-      this.client.fetchProviderBudgets(),
-      this.client.fetchGlobalSpendReport(dr.start, dr.end),
-      this.client.fetchSpendLogs(10),
-    ]);
-    if (results[0].status === "fulfilled") keyInfo = results[0].value;
-    else keyError = (results[0].reason as Error)?.message ?? "Unknown error";
-    // Fall back to /key/list if keyInfo has no spend and no keyToQuery is set
-    if (keyInfo && !(keyInfo.spend ?? 0) && !this.config.keyToQuery) {
-      try {
-        const list = await this.client.fetchKeyList(1, 50);
-        const firstWithSpend = (list.keys ?? []).find(
-          (k) => (k.spend ?? 0) > 0,
-        );
-        if (firstWithSpend) {
-          keyInfo = {
-            ...keyInfo,
-            spend: firstWithSpend.spend,
-            max_budget: firstWithSpend.max_budget,
-            key_alias: firstWithSpend.key_alias || keyInfo.key_alias,
-            key_name: firstWithSpend.key_name || keyInfo.key_name,
-          };
-        }
-      } catch {
-        /* fallback failed, keep original keyInfo */
-      }
+    try {
+      keyInfo = await this.client.fetchKeyInfo();
+    } catch (err) {
+      keyError = (err as Error)?.message ?? "Unknown error";
     }
 
-    if (results[1].status === "fulfilled") providerBudgets = results[1].value;
-    else
-      providerError = (results[1].reason as Error)?.message ?? "Unknown error";
-    if (results[2].status === "fulfilled") globalReport = results[2].value;
-    else reportError = (results[2].reason as Error)?.message ?? "Unknown error";
-    if (results[3].status === "fulfilled") spendLogs = results[3].value;
-    return {
-      keyInfo,
-      providerBudgets,
-      globalReport,
-      spendLogs,
-      keyError,
-      providerError,
-      reportError,
-    };
+    try {
+      spendLogs = await this.client.fetchSpendLogs(10);
+    } catch {
+      /* silent */
+    }
+
+    return { keyInfo, spendLogs, keyError };
   }
 
   // ── Theme state ──────────────────────────────────────────────────────────
@@ -1786,12 +1491,6 @@ class BalanceStatusBarManager {
     // Handle messages from the webview
     this.budgetOverviewPanel.webview.onDidReceiveMessage((msg) => {
       switch (msg.type) {
-        case "setDuration":
-          this.setReportDurationFromWebview(msg.duration);
-          break;
-        case "setCustomDates":
-          this.setCustomDatesFromWebview(msg.startDate, msg.endDate);
-          break;
         case "refresh":
           this.refreshBudgetOverview();
           break;
@@ -1809,9 +1508,6 @@ class BalanceStatusBarManager {
         case "openSettings":
           vscode.commands.executeCommand("workbench.action.openSettings", "@ext:litellm-tools.corellm");
           break;
-        case "cancel":
-          this.budgetOverviewPanel?.dispose();
-          break;
         case "close":
           this.budgetOverviewPanel?.dispose();
           break;
@@ -1825,12 +1521,8 @@ class BalanceStatusBarManager {
 
     let data: {
       keyInfo: KeyInfoResponse | null;
-      providerBudgets: ProviderBudgetResponse | null;
-      globalReport: GlobalSpendReportEntry[];
       spendLogs: SpendLogEntry[];
       keyError: string | null;
-      providerError: string | null;
-      reportError: string | null;
     };
 
     await vscode.window.withProgress(
@@ -1839,7 +1531,7 @@ class BalanceStatusBarManager {
         title: "Fetching CoreLLM budget data\u2026",
       },
       async () => {
-        data = await this.fetchBudgetData(this.config.reportDuration);
+        data = await this.fetchBudgetData();
       },
     );
     if (!this.budgetOverviewPanel) return;
@@ -1847,10 +1539,10 @@ class BalanceStatusBarManager {
       this.buildBudgetOverviewHtmlWithDuration(data!);
   }
 
-  /** Re-render the budget overview panel (call when duration changes) */
+  /** Re-render the budget overview panel */
   private async refreshBudgetOverview(): Promise<void> {
     if (!this.budgetOverviewPanel) return;
-    const data = await this.fetchBudgetData(this.config.reportDuration);
+    const data = await this.fetchBudgetData();
     if (this.budgetOverviewPanel) {
       this.budgetOverviewPanel.webview.html =
         this.buildBudgetOverviewHtmlWithDuration(data);
@@ -1859,27 +1551,11 @@ class BalanceStatusBarManager {
 
   private buildBudgetOverviewHtmlWithDuration(data: {
     keyInfo: KeyInfoResponse | null;
-    providerBudgets: ProviderBudgetResponse | null;
-    globalReport: GlobalSpendReportEntry[];
     spendLogs: SpendLogEntry[];
     keyError: string | null;
-    providerError: string | null;
-    reportError: string | null;
   }): string {
-    const dur = this.config.reportDuration;
-    const durLabel = DURATION_LABELS[dur] || dur;
-    const dr = getDateRange(
-      dur,
-      this.config.reportCustomStart,
-      this.config.reportCustomEnd,
-    );
     return buildBudgetOverviewHtml({
       ...data,
-      durationLabel: durLabel,
-      dateRange: `${dr.start} \u2013 ${dr.end}`,
-      currentDuration: dur,
-      customStart: this.config.reportCustomStart || dr.start,
-      customEnd: this.config.reportCustomEnd || dr.end,
       activeTheme: this.activeTheme,
     });
   }
@@ -3162,10 +2838,9 @@ class BalanceStatusBarManager {
 
   private async exportBudgetCsv(): Promise<void> {
     if (!this.budgetOverviewPanel) return;
-    const data = await this.fetchBudgetData(this.config.reportDuration);
+    const data = await this.fetchBudgetData();
     const rows: string[][] = [];
     const headers = ["Metric", "Value"];
-    // Key info
     const alias =
       data.keyInfo?.key_alias ||
       data.keyInfo?.key_name ||
@@ -3182,27 +2857,6 @@ class BalanceStatusBarManager {
           )
         : "unlimited",
     ]);
-    // Providers
-    if (data.providerBudgets?.providers) {
-      rows.push(["", ""]);
-      rows.push(["--- Providers ---", ""]);
-      for (const [name, p] of Object.entries(data.providerBudgets.providers)) {
-        rows.push([
-          name,
-          `Spend: ${p.spend ?? 0}, Budget: ${p.budget_limit ?? "unlimited"}, Period: ${p.time_period ?? ""}`,
-        ]);
-      }
-    }
-
-    // Daily spend
-    if (data.globalReport.length > 0) {
-      rows.push(["", ""]);
-      rows.push(["--- Daily Spend ---", ""]);
-      for (const day of data.globalReport) {
-        const ds = day.teams?.reduce((s, t) => s + (t.spend ?? 0), 0) ?? 0;
-        rows.push([day["group-by-day"] || "", String(ds)]);
-      }
-    }
 
     const csv = [
       headers.join(","),
@@ -3634,7 +3288,7 @@ let updateTimer: NodeJS.Timeout | undefined;
 
 const EXTENSION_ID = "litellm-tools.corellm";
 const GITHUB_REPO = "core-innovation/litellm-balance-checker";
-const CURRENT_VERSION = "0.8.2";
+const CURRENT_VERSION = "0.8.3";
 const LAST_NOTIFIED_KEY = "corellm.lastNotifiedVersion";
 const LAST_SEEN_VERSION_KEY = "corellm.lastSeenVersion";
 
