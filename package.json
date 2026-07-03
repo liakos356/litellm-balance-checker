@@ -11,7 +11,8 @@
     "url": "https://github.com/core-innovation/litellm-balance-checker.git"
   },
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.85.0",
+    "node": ">=18"
   },
   "categories": [
     "Other"
@@ -292,7 +293,9 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile",
-    "lint": "eslint src --ext ts"
+    "lint": "eslint src --ext ts",
+    "package": "vsce package",
+    "test": "npm run compile && npm run lint"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

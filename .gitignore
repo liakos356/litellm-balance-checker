@@ -2,3 +2,20 @@ node_modules/
 out/
 dist/
 .vscode-test/
+
+# macOS
+.DS_Store
+
+# VSIX build artifacts (use GitHub Releases for distribution)
+*.vsix
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor / IDE
+*.swp
+*.swo
+*~
+.idea/

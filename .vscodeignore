@@ -3,7 +3,13 @@
 src/**
 node_modules/**
 .gitignore
+.gitattributes
 tsconfig.json
 **/*.ts
 **/*.map
 memories/**
+**/*.vsix
+.DS_Store
+.eslintrc.json
+.github/**
+CONTRIBUTING.md
