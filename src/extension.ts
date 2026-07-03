@@ -621,7 +621,7 @@ ${modelChartData.length > 0 ? `
   </tr>`).join('')}</tbody></table>` : '<p style="opacity:.6">No recent spend logs.</p>'}
 </div>
 
-<div class="footer">CoreLLM \u00B7 Total spend: ${usd(effectiveTotalSpend)} \u00B7 ${providerCount} provider(s) \u00B7 ${globalReport.length} day(s) \u00B7 ${new Date().toLocaleString()}</div>
+<div class="footer">CoreLLM \u00B7 Spend: ${usd(spend, 4)} \u00B7 ${maxB != null && maxB > 0 ? `Used: ${usedPct.toFixed(1)}% \u00B7 Left: ${usd(remaining!, 4)}` : 'No budget set'} \u00B7 ${providerCount} provider(s) \u00B7 ${globalReport.length} day(s)</div>
 <script>
 (function() {
   const vscode = acquireVsCodeApi();
@@ -694,7 +694,7 @@ ${logs.length > 0 ? `
   <td>${usd(l.spend, 6)}</td>
   <td>${(l.total_tokens ?? 0).toLocaleString()}</td>
 </tr>`).join('')}</tbody></table>` : '<p>No spend logs found.</p>'}
-<div class="footer">Total: ${usd(logs.reduce((s, l) => s + (l.spend ?? 0), 0), 4)} \u00B7 ${logs.length} entries \u00B7 ${logs.reduce((s, l) => s + (l.total_tokens ?? 0), 0).toLocaleString()} tokens \u00B7 ${new Date().toLocaleString()}</div>
+<div class="footer">CoreLLM \u00B7 Spend: ${usd(logs.reduce((s, l) => s + (l.spend ?? 0), 0), 4)} \u00B7 ${logs.length} entries \u00B7 ${logs.reduce((s, l) => s + (l.total_tokens ?? 0), 0).toLocaleString()} tokens</div>
 </body>
 </html>`;
 }
@@ -742,7 +742,7 @@ ${keys.length > 0 ? `<p>${keys.length} key(s) found.</p>
     <td>${k.team_id ? `<span class="badge">${escapeHtml(k.team_id)}</span>` : '\u2014'}</td>
   </tr>`;
 }).join('')}</tbody></table>` : '<p>No keys found.</p>'}
-<div class="footer">${keys.length} key(s) · Total spend: ${usd(keys.reduce((s, k) => s + (k.spend ?? 0), 0), 4)} · Total budget: ${usd(keys.reduce((s, k) => s + (k.max_budget ?? 0), 0))} · ${new Date().toLocaleString()}</div>
+<div class="footer">CoreLLM · ${keys.length} key(s) · Spend: ${usd(keys.reduce((s, k) => s + (k.spend ?? 0), 0), 4)} · Budget: ${usd(keys.reduce((s, k) => s + (k.max_budget ?? 0), 0))}</div>
 </body>
 </html>`;
 }
@@ -1039,10 +1039,16 @@ class BalanceStatusBarManager {
     this.statusBarItem.color = display.color ?? undefined;
   }
 
+  /** Build an ASCII bar like [██████░░░░] for a given percentage (0-100). */
+  private asciiBar(pct: number, width = 10): string {
+    const filled = Math.round((pct / 100) * width);
+    const empty = width - filled;
+    return '[' + '█'.repeat(filled) + '░'.repeat(empty) + ']';
+  }
+
   private computeDisplay(data: KeyInfoResponse, mode?: number): StatusBarDisplay {
     const spend = data.spend ?? 0;
     const maxBudget = data.max_budget ?? null;
-    const keyAlias = data.key_alias || data.key_name || '';
     const m = mode ?? this.displayCycleIndex;
     let remaining: number | null = null;
     let usedPct = 0;
@@ -1052,7 +1058,7 @@ class BalanceStatusBarManager {
       usedPct = (spend / maxBudget) * 100;
     }
     const pctRemaining = maxBudget !== null && maxBudget > 0 ? 100 - usedPct : 100;
-    const prefix = this.config.showKeyAlias && keyAlias ? `${keyAlias}: ` : '';
+    const prefix = 'CoreLLM: ';
     let text: string;
     let color: string | undefined;
 
@@ -1069,9 +1075,10 @@ class BalanceStatusBarManager {
           text = `$(coin) ${prefix}$${spend.toFixed(2)} spent`;
         }
         break;
-      case 1: // Usage percentage
+      case 1: // Usage percentage with ASCII bar
         if (hasBudget) {
-          text = `$(coin) ${prefix}${usedPct.toFixed(1)}% used`;
+          const bar = this.asciiBar(usedPct);
+          text = `$(coin) ${prefix}${bar} ${usedPct.toFixed(1)}% used`;
           if (pctRemaining <= this.config.budgetWarningThreshold) {
             color = new vscode.ThemeColor('statusBarItem.warningForeground')?.toString() || '#ffcc00';
           }
