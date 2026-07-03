@@ -2,7 +2,12 @@
 
 All notable changes to the CoreLLM VS Code extension.
 
-## 0.6.0
+## 0.7.1
+
+- **Fixed:** `apiKey` and `adminKey` settings now masked as password fields in Settings UI (eye-toggle supported)
+- **Docs:** Version bump and push workflow now mandatory for every change/feature
+
+## 0.7.0
 
 - **New: Tutorial/Getting Started panel** (`CoreLLM: Show Tutorial`) — interactive guide covering quick start, authentication, status bar, commands, panels, settings, tips, and FAQ with theme toggle
 - **New: Changelog panel** (`CoreLLM: Show Changelog`) — view what's new after each update, auto-shown on version upgrade
