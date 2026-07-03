@@ -331,6 +331,19 @@ function usd(v: number | null | undefined, decimals = 2): string {
   return `$${v.toFixed(decimals)}`;
 }
 
+/** Get a human-readable relative time string (e.g., "2m ago", "1h ago"). */
+function getRelativeTime(d: Date): string {
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return `${Math.floor(days / 30)}mo ago`;
+}
+
 // ─── Budget Overview Panel HTML ──────────────────────────────────────────────
 
 // ─── Chart helpers ───────────────────────────────────────────────────────────
@@ -497,29 +510,71 @@ function buildBudgetOverviewHtml(data: {
   .ok{color:var(--vscode-editorGutter-addedForeground,#4ec9b0)}
   table{width:100%;border-collapse:collapse;font-size:.85em}
   th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--vscode-panel-border)}
-  th{font-weight:600;opacity:.8}
-  .badge{display:inline-block;background:var(--vscode-badge-background);color:var(--vscode-badge-foreground);border-radius:4px;padding:1px 6px;font-size:.8em}
-  .error-box{background:var(--vscode-inputValidation-errorBackground,#5a1d1d);border:1px solid var(--vscode-inputValidation-errorBorder,#be1100);border-radius:4px;padding:8px 12px;margin-bottom:8px;font-size:.85em}
-  .footer{margin-top:16px;text-align:center;font-size:.75em;opacity:.5}
-  .bar-container{height:8px;background:var(--vscode-progressBar-background,#333);border-radius:4px;overflow:hidden;margin:8px 0}
-  .bar-fill{height:100%;border-radius:4px;transition:width .5s}
-  .bar-fill.green{background:var(--vscode-editorGutter-addedForeground,#4ec9b0)}
-  .bar-fill.yellow{background:var(--vscode-editorWarning-foreground,#e2b714)}
-  .bar-fill.red{background:var(--vscode-errorForeground,#f14c4c)}
+  th{font-weight:600;opacity:.8;position:sticky;top:0;background:var(--vscode-editor-background);z-index:1}
+  .badge{display:inline-block;background:var(--vscode-badge-background);color:var(--vscode-badge-foreground);border-radius:4px;padding:1px 6px;font-size:.8em;font-weight:500}
+  .badge-success{background:var(--vscode-editorGutter-addedForeground,#4ec9b0);color:#fff}
+  .badge-warn{background:var(--vscode-editorWarning-foreground,#e2b714);color:#1e1e1e}
+  .badge-error{background:var(--vscode-errorForeground,#f14c4c);color:#fff}
+  .error-box{background:color-mix(in srgb,var(--vscode-inputValidation-errorBackground,#5a1d1d) 80%,transparent);border:1px solid var(--vscode-inputValidation-errorBorder,#be1100);border-radius:6px;padding:10px 14px;margin-bottom:10px;font-size:.85em;line-height:1.5}
+  .footer{margin-top:20px;padding:12px;text-align:center;font-size:.72em;opacity:.5;border-top:1px solid var(--vscode-panel-border);background:var(--vscode-editorWidget-background);border-radius:0 0 8px 8px}
+  .bar-container{height:8px;background:color-mix(in srgb,var(--vscode-progressBar-background,#333) 60%,transparent);border-radius:4px;overflow:hidden;margin:8px 0}
+  .bar-fill{height:100%;border-radius:4px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+  .bar-fill.green{background:linear-gradient(90deg,var(--vscode-editorGutter-addedForeground,#4ec9b0),#6dd8c0)}
+  .bar-fill.yellow{background:linear-gradient(90deg,var(--vscode-editorWarning-foreground,#e2b714),#f0c929)}
+  .bar-fill.red{background:linear-gradient(90deg,var(--vscode-errorForeground,#f14c4c),#f06060)}
   .chart-row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;justify-content:center}
-  .legend{font-size:.75em;margin-top:4px}
-  .legend-item{display:inline-block;margin-right:12px;white-space:nowrap}
-  .legend-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+  .legend{font-size:.75em;margin-top:4px;display:flex;flex-wrap:wrap;gap:6px}
+  .legend-item{display:inline-flex;align-items:center;margin-right:8px;white-space:nowrap;font-size:.82em;opacity:.85}
+  .legend-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle;flex-shrink:0}
 
   /* Datepicker toolbar */
-  .toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px;padding:10px 14px;background:var(--vscode-editorWidget-background);border:1px solid var(--vscode-widget-border);border-radius:8px}
-  .toolbar-btn{padding:4px 12px;border:1px solid var(--vscode-panel-border);border-radius:4px;background:transparent;color:var(--vscode-foreground);cursor:pointer;font-size:.82em;font-family:inherit;transition:background .15s}
-  .toolbar-btn:hover{background:var(--vscode-list-hoverBackground)}
-  .toolbar-btn.active{background:var(--vscode-button-background);color:var(--vscode-button-foreground);border-color:var(--vscode-button-background)}
+  .toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:14px;padding:10px 14px;background:var(--vscode-editorWidget-background);border:1px solid var(--vscode-widget-border);border-radius:8px;position:sticky;top:0;z-index:10}
+  .toolbar-btn{padding:5px 14px;border:1px solid var(--vscode-panel-border);border-radius:5px;background:transparent;color:var(--vscode-foreground);cursor:pointer;font-size:.82em;font-family:inherit;transition:all .15s ease}
+  .toolbar-btn:hover{background:var(--vscode-list-hoverBackground);border-color:var(--vscode-focusBorder)}
+  .toolbar-btn.active{background:var(--vscode-button-background);color:var(--vscode-button-foreground);border-color:var(--vscode-button-background);font-weight:500}
   .toolbar-btn.active:hover{background:var(--vscode-button-hoverBackground)}
-  .toolbar-sep{width:1px;height:24px;background:var(--vscode-panel-border);margin:0 4px}
+  .toolbar-sep{width:1px;height:24px;background:var(--vscode-panel-border);margin:0 6px}
   .toolbar-label{font-size:.78em;opacity:.7;margin-right:2px}
-  .toolbar-date{background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border);border-radius:4px;padding:3px 6px;font-size:.82em;font-family:inherit}
+  .toolbar-date{background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border);border-radius:4px;padding:3px 8px;font-size:.82em;font-family:inherit}
+
+  /* Summary sticky bar */
+  .summary-bar{display:flex;flex-wrap:wrap;gap:0;margin-bottom:14px;background:var(--vscode-editorWidget-background);border:1px solid var(--vscode-widget-border);border-radius:8px;overflow:hidden}
+  .summary-item{flex:1;min-width:100px;padding:10px 12px;text-align:center;border-right:1px solid var(--vscode-panel-border)}
+  .summary-item:last-child{border-right:none}
+  .summary-value{font-size:1.15em;font-weight:700;line-height:1.3}
+  .summary-label{font-size:.7em;opacity:.65;text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+  .trend-up{color:var(--vscode-errorForeground,#f14c4c)}
+  .trend-down{color:var(--vscode-editorGutter-addedForeground,#4ec9b0)}
+
+  /* Empty state */
+  .empty-state{padding:28px 16px;text-align:center;opacity:.5}
+  .empty-state .empty-icon{font-size:2em;margin-bottom:10px;display:block;opacity:.6}
+  .empty-state .empty-text{font-size:.88em;line-height:1.6}
+
+  /* Scrollable table wrapper */
+  .table-wrap{overflow-x:auto;margin:0 -4px;padding:0 4px}
+
+  /* Search filter */
+  .search-bar{display:flex;gap:8px;margin-bottom:12px;align-items:center}
+  .search-input{flex:1;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border);border-radius:5px;padding:6px 10px;font-size:.85em;font-family:inherit;outline:none;transition:border-color .15s}
+  .search-input:focus{border-color:var(--vscode-focusBorder)}
+  .search-input::placeholder{opacity:.45}
+
+  /* Copy button */
+  .copy-btn{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border:1px solid var(--vscode-panel-border);border-radius:4px;background:transparent;color:var(--vscode-foreground);cursor:pointer;font-size:.76em;font-family:inherit;transition:all .15s;opacity:.6}
+  .copy-btn:hover{opacity:1;background:var(--vscode-list-hoverBackground);border-color:var(--vscode-focusBorder)}
+  .copy-btn.copied{background:var(--vscode-editorGutter-addedForeground,#4ec9b0);color:#fff;border-color:var(--vscode-editorGutter-addedForeground,#4ec9b0);opacity:1}
+
+  /* Table row hover */
+  tbody tr{cursor:default;transition:background .12s}
+  tbody tr:hover{background:var(--vscode-list-hoverBackground)}
+  .copyable{display:inline-flex;align-items:center;gap:4px;cursor:pointer;padding:2px 4px;border-radius:3px;transition:background .12s}
+  .copyable:hover{background:var(--vscode-list-hoverBackground)}
+  .copyable .copy-icon{opacity:0;font-size:.7em;transition:opacity .12s}
+  .copyable:hover .copy-icon{opacity:.5}
+
+  /* Relative time badge */
+  .rel-time{font-size:.78em;opacity:.6;margin-left:4px}
 </style>
 </head>
 <body>
@@ -539,9 +594,20 @@ function buildBudgetOverviewHtml(data: {
   <button class="toolbar-btn${currentDuration === 'custom' ? ' active' : ''}" id="applyCustom">Apply</button>
 </div>
 
+<!-- Summary bar -->
+<div class="summary-bar">
+  <div class="summary-item"><div class="summary-value">${usd(effectiveTotalSpend)}</div><div class="summary-label">Total Spend</div></div>
+  <div class="summary-item"><div class="summary-value">${maxB != null && maxB > 0 ? usedPct.toFixed(1) + '%' : '\u2014'}</div><div class="summary-label">Used</div></div>
+  <div class="summary-item"><div class="summary-value ${remaining != null && remaining <= 0 ? 'err' : remaining != null && maxB != null && remaining / maxB <= 0.2 ? 'warn' : 'ok'}">${remaining != null ? usd(remaining, 4) : '\u221E'}</div><div class="summary-label">Remaining</div></div>
+  <div class="summary-item"><div class="summary-value">${totalRequests.toLocaleString()}</div><div class="summary-label">Requests</div></div>
+  <div class="summary-item"><div class="summary-value">${providerCount}</div><div class="summary-label">Providers</div></div>
+  <div class="summary-item"><div class="summary-value">${globalReport.length}</div><div class="summary-label">Days</div></div>
+</div>
+
 <!-- Key Info Card -->
 <div class="card">
-  <h3>\u{1F511} Key: ${escapeHtml(alias)}</h3>
+  <h3>\u{1F511} Key <span class="copy-btn" onclick="copyKey()" id="keyCopyBtn">\u{1F4CB} Copy</span></h3>
+  <div style="font-size:.88em;margin-bottom:10px;word-break:break-all;font-family:monospace;opacity:.8">${escapeHtml(alias)}</div>
   <div class="grid">
     <div class="stat"><div class="stat-value ${maxB != null && remaining != null && remaining / maxB <= 0.2 ? 'warn' : ''}">${usd(spend, 4)}</div><div class="stat-label">Total Spend</div></div>
     <div class="stat"><div class="stat-value">${usd(maxB)}</div><div class="stat-label">Max Budget</div></div>
@@ -558,7 +624,7 @@ function buildBudgetOverviewHtml(data: {
   ${providerError ? `<div class="error-box">\u26A0 ${escapeHtml(providerError)}</div>` : ''}
   ${providers && providerCount > 0 ? `
   <div class="chart-row">${providerChart}</div>
-  <table>
+  <div class="table-wrap"><table>
     <thead><tr><th>Provider</th><th>Spend</th><th>Budget Limit</th><th>Used</th><th>Period</th><th>Resets</th></tr></thead>
     <tbody>
     ${Object.entries(providers).map(([name, p]) => {
@@ -575,8 +641,7 @@ function buildBudgetOverviewHtml(data: {
         <td>${p.budget_reset_at ? new Date(p.budget_reset_at).toLocaleDateString() : '\u2014'}</td>
       </tr>`;
     }).join('')}
-    </tbody>
-  </table>` : '<p style="opacity:.6">No provider budgets configured.</p>'}
+    </tbody></table></div>` : '<div class="empty-state"><span class="empty-icon">\u2601\uFE0F</span><div class="empty-text">No provider budgets configured.</div></div>'}
 </div>
 
 <!-- Global Spend Report Card -->
@@ -585,11 +650,7 @@ function buildBudgetOverviewHtml(data: {
   ${dateRange ? `<p style="font-size:.8em;opacity:.6;margin:4px 0 0">${escapeHtml(dateRange)}</p>` : ''}
   ${reportError ? `<div class="error-box">\u26A0 ${escapeHtml(reportError)}</div>` : ''}
   ${globalReport.length > 0 ? `
-  <div class="grid" style="margin-bottom:12px">
-    <div class="stat"><div class="stat-value">${usd(effectiveTotalSpend)}</div><div class="stat-label">Total 7d Spend</div></div>
-    <div class="stat"><div class="stat-value">${totalRequests.toLocaleString()}</div><div class="stat-label">Requests</div></div>
-  </div>
-  <div class="chart-row">${dailyChart}</div>` : '<p style="opacity:.6">No global spend data.</p>'}
+  <div class="chart-row">${dailyChart}</div>` : '<div class="empty-state"><span class="empty-icon">\uD83C\uDF10</span><div class="empty-text">No global spend data for the selected period.</div></div>'}
 </div>
 
 <!-- Model Usage Card (from spend logs) -->
@@ -611,14 +672,18 @@ ${modelChartData.length > 0 ? `
 <div class="card">
   <h3>\uD83D\uDCDD Recent Spend Logs <span class="badge">${spendLogs.length}</span></h3>
   ${spendLogs.length > 0 ? `
-  <table><thead><tr><th>Time</th><th>Model</th><th>Type</th><th>Spend</th><th>Tokens</th></tr></thead>
-  <tbody>${spendLogs.map(l => `<tr>
-    <td>${l.startTime ? new Date(l.startTime).toLocaleString() : '\u2014'}</td>
+  <div class="table-wrap"><table><thead><tr><th>Time</th><th>Model</th><th>Type</th><th>Spend</th><th>Tokens</th></tr></thead>
+  <tbody>${spendLogs.map(l => {
+    const ts = l.startTime ? new Date(l.startTime) : null;
+    const rel = ts ? getRelativeTime(ts) : '';
+    return `<tr>
+    <td>${ts ? ts.toLocaleString() : '\u2014'}${rel ? `<span class="rel-time">(${rel})</span>` : ''}</td>
     <td>${escapeHtml(l.model ?? '\u2014')}</td>
     <td><span class="badge">${escapeHtml(l.call_type ?? '\u2014')}</span></td>
     <td>${usd(l.spend, 6)}</td>
     <td>${(l.total_tokens ?? 0).toLocaleString()}</td>
-  </tr>`).join('')}</tbody></table>` : '<p style="opacity:.6">No recent spend logs.</p>'}
+  </tr>`;
+  }).join('')}</tbody></table></div>` : '<div class="empty-state"><span class="empty-icon">\uD83D\uDCDD</span><div class="empty-text">No recent spend logs found.</div></div>'}
 </div>
 
 <div class="footer">CoreLLM \u00B7 Spend: ${usd(spend, 4)} \u00B7 ${maxB != null && maxB > 0 ? `Used: ${usedPct.toFixed(1)}% \u00B7 Left: ${usd(remaining!, 4)}` : 'No budget set'} \u00B7 ${providerCount} provider(s) \u00B7 ${globalReport.length} day(s)</div>
@@ -648,6 +713,20 @@ ${modelChartData.length > 0 ? `
   document.getElementById('dateEnd').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') document.getElementById('applyCustom').click();
   });
+
+  // Copy key to clipboard
+  window.copyKey = function() {
+    const alias = ${JSON.stringify(alias)};
+    navigator.clipboard.writeText(alias).then(() => {
+      const btn = document.getElementById('keyCopyBtn');
+      btn.textContent = '\u2705 Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = '\u{1F4CB} Copy';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  };
 })();
 </script>
 </body>
@@ -667,14 +746,26 @@ function buildSpendLogsHtml(logs: SpendLogEntry[], error: string | null): string
   h2{margin-top:0}
   table{width:100%;border-collapse:collapse;font-size:.85em}
   th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--vscode-panel-border)}
-  th{font-weight:600;opacity:.8;position:sticky;top:0;background:var(--vscode-editor-background)}
-  .badge{display:inline-block;background:var(--vscode-badge-background);color:var(--vscode-badge-foreground);border-radius:4px;padding:1px 6px;font-size:.8em}
-  .error-box{background:var(--vscode-inputValidation-errorBackground);border:1px solid var(--vscode-inputValidation-errorBorder);border-radius:4px;padding:8px 12px;margin-bottom:8px;font-size:.85em}
-  .summary{display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap}
-  .summary-item{background:var(--vscode-editorWidget-background);border:1px solid var(--vscode-widget-border);border-radius:6px;padding:8px 16px;text-align:center;flex:1;min-width:100px}
+  th{font-weight:600;opacity:.8;position:sticky;top:0;background:var(--vscode-editor-background);z-index:1}
+  .badge{display:inline-block;background:var(--vscode-badge-background);color:var(--vscode-badge-foreground);border-radius:4px;padding:1px 6px;font-size:.8em;font-weight:500}
+  .error-box{background:color-mix(in srgb,var(--vscode-inputValidation-errorBackground) 80%,transparent);border:1px solid var(--vscode-inputValidation-errorBorder);border-radius:6px;padding:10px 14px;margin-bottom:10px;font-size:.85em;line-height:1.5}
+  .summary{display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .summary-item{background:var(--vscode-editorWidget-background);border:1px solid var(--vscode-widget-border);border-radius:8px;padding:10px 18px;text-align:center;flex:1;min-width:100px}
   .summary-value{font-size:1.3em;font-weight:700}
-  .summary-label{font-size:.75em;opacity:.7}
-  .footer{margin-top:16px;text-align:center;font-size:.75em;opacity:.5}
+  .summary-label{font-size:.72em;opacity:.65;text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+  .footer{margin-top:20px;padding:12px;text-align:center;font-size:.72em;opacity:.5;border-top:1px solid var(--vscode-panel-border);background:var(--vscode-editorWidget-background);border-radius:0 0 8px 8px}
+  .search-bar{display:flex;gap:8px;margin-bottom:12px;align-items:center}
+  .search-input{flex:1;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border);border-radius:5px;padding:6px 10px;font-size:.85em;font-family:inherit;outline:none;transition:border-color .15s}
+  .search-input:focus{border-color:var(--vscode-focusBorder)}
+  .search-input::placeholder{opacity:.45}
+  .table-wrap{overflow-x:auto;margin:0 -4px;padding:0 4px}
+  tbody tr{cursor:default;transition:background .12s}
+  tbody tr:hover{background:var(--vscode-list-hoverBackground)}
+  .rel-time{font-size:.78em;opacity:.6;margin-left:4px;white-space:nowrap}
+  .empty-state{padding:28px 16px;text-align:center;opacity:.5}
+  .empty-state .empty-icon{font-size:2em;margin-bottom:10px;display:block;opacity:.6}
+  .empty-state .empty-text{font-size:.88em;line-height:1.6}
+  .match-count{font-size:.8em;opacity:.6;margin-left:8px}
 </style>
 </head>
 <body>
@@ -686,15 +777,45 @@ ${logs.length > 0 ? `
   <div class="summary-item"><div class="summary-value">${usd(logs.reduce((s, l) => s + (l.spend ?? 0), 0), 4)}</div><div class="summary-label">Total Spend</div></div>
   <div class="summary-item"><div class="summary-value">${logs.reduce((s, l) => s + (l.total_tokens ?? 0), 0).toLocaleString()}</div><div class="summary-label">Total Tokens</div></div>
 </div>
-<table><thead><tr><th>Time</th><th>Model</th><th>Type</th><th>Spend</th><th>Tokens</th></tr></thead>
-<tbody>${logs.map(l => `<tr>
-  <td>${l.startTime ? new Date(l.startTime).toLocaleString() : '\u2014'}</td>
-  <td>${escapeHtml(l.model ?? '\u2014')}</td>
-  <td><span class="badge">${escapeHtml(l.call_type ?? '\u2014')}</span></td>
+<div class="search-bar">
+  <input type="text" class="search-input" id="spendSearch" placeholder="\u{1F50D} Filter by model, type, or key\u2026">
+  <span class="match-count" id="matchCount">Showing ${logs.length}</span>
+</div>
+<div class="table-wrap"><table id="spendTable"><thead><tr><th>Time</th><th>Model</th><th>Type</th><th>Spend</th><th>Tokens</th></tr></thead>
+<tbody>${logs.map((l, idx) => {
+  const ts = l.startTime ? new Date(l.startTime) : null;
+  const rel = ts ? getRelativeTime(ts) : '';
+  const model = l.model ?? '';
+  const callType = l.call_type ?? '';
+  return `<tr data-idx="${idx}" data-model="${escapeHtml(model)}" data-type="${escapeHtml(callType)}">
+  <td>${ts ? ts.toLocaleString() : '\u2014'}${rel ? `<span class="rel-time">(${rel})</span>` : ''}</td>
+  <td>${escapeHtml(model || '\u2014')}</td>
+  <td><span class="badge">${escapeHtml(callType || '\u2014')}</span></td>
   <td>${usd(l.spend, 6)}</td>
   <td>${(l.total_tokens ?? 0).toLocaleString()}</td>
-</tr>`).join('')}</tbody></table>` : '<p>No spend logs found.</p>'}
+</tr>`;
+}).join('')}</tbody></table></div>` : '<div class="empty-state"><span class="empty-icon">\uD83D\uDCDD</span><div class="empty-text">No spend logs found.</div></div>'}
 <div class="footer">CoreLLM \u00B7 Spend: ${usd(logs.reduce((s, l) => s + (l.spend ?? 0), 0), 4)} \u00B7 ${logs.length} entries \u00B7 ${logs.reduce((s, l) => s + (l.total_tokens ?? 0), 0).toLocaleString()} tokens</div>
+<script>
+(function() {
+  const input = document.getElementById('spendSearch');
+  const table = document.getElementById('spendTable');
+  const matchCount = document.getElementById('matchCount');
+  if (!input || !table) return;
+  input.addEventListener('input', function() {
+    const q = this.value.toLowerCase().trim();
+    const rows = table.querySelectorAll('tbody tr');
+    let visible = 0;
+    rows.forEach(row => {
+      const txt = row.textContent.toLowerCase();
+      const match = !q || txt.includes(q);
+      row.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    matchCount.textContent = q ? 'Showing ' + visible + ' of ' + rows.length : 'Showing ' + rows.length;
+  });
+})();
+</script>
 </body>
 </html>`;
 }
@@ -712,37 +833,78 @@ function buildKeyListHtml(keys: KeyListItem[], error: string | null): string {
   h2{margin-top:0}
   table{width:100%;border-collapse:collapse;font-size:.85em}
   th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--vscode-panel-border)}
-  th{font-weight:600;opacity:.8;position:sticky;top:0;background:var(--vscode-editor-background)}
-  .badge{display:inline-block;background:var(--vscode-badge-background);color:var(--vscode-badge-foreground);border-radius:4px;padding:1px 6px;font-size:.8em}
-  .error-box{background:var(--vscode-inputValidation-errorBackground);border:1px solid var(--vscode-inputValidation-errorBorder);border-radius:4px;padding:8px 12px;margin-bottom:8px;font-size:.85em}
-  .bar-container{height:6px;background:var(--vscode-progressBar-background,#333);border-radius:3px;overflow:hidden;margin:4px 0}
-  .bar-fill{height:100%;border-radius:3px}
-  .bar-fill.green{background:var(--vscode-editorGutter-addedForeground,#4ec9b0)}
-  .bar-fill.yellow{background:var(--vscode-editorWarning-foreground,#e2b714)}
-  .bar-fill.red{background:var(--vscode-errorForeground,#f14c4c)}
-  .footer{margin-top:16px;text-align:center;font-size:.75em;opacity:.5}
+  th{font-weight:600;opacity:.8;position:sticky;top:0;background:var(--vscode-editor-background);z-index:1}
+  .badge{display:inline-block;background:var(--vscode-badge-background);color:var(--vscode-badge-foreground);border-radius:4px;padding:1px 6px;font-size:.8em;font-weight:500}
+  .error-box{background:color-mix(in srgb,var(--vscode-inputValidation-errorBackground) 80%,transparent);border:1px solid var(--vscode-inputValidation-errorBorder);border-radius:6px;padding:10px 14px;margin-bottom:10px;font-size:.85em;line-height:1.5}
+  .bar-container{height:6px;background:color-mix(in srgb,var(--vscode-progressBar-background,#333) 60%,transparent);border-radius:3px;overflow:hidden;margin:4px 0}
+  .bar-fill{height:100%;border-radius:3px;transition:width .5s}
+  .bar-fill.green{background:linear-gradient(90deg,var(--vscode-editorGutter-addedForeground,#4ec9b0),#6dd8c0)}
+  .bar-fill.yellow{background:linear-gradient(90deg,var(--vscode-editorWarning-foreground,#e2b714),#f0c929)}
+  .bar-fill.red{background:linear-gradient(90deg,var(--vscode-errorForeground,#f14c4c),#f06060)}
+  .footer{margin-top:20px;padding:12px;text-align:center;font-size:.72em;opacity:.5;border-top:1px solid var(--vscode-panel-border);background:var(--vscode-editorWidget-background);border-radius:0 0 8px 8px}
+  .search-bar{display:flex;gap:8px;margin-bottom:12px;align-items:center}
+  .search-input{flex:1;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border);border-radius:5px;padding:6px 10px;font-size:.85em;font-family:inherit;outline:none;transition:border-color .15s}
+  .search-input:focus{border-color:var(--vscode-focusBorder)}
+  .search-input::placeholder{opacity:.45}
+  .table-wrap{overflow-x:auto;margin:0 -4px;padding:0 4px}
+  tbody tr{cursor:pointer;transition:background .12s}
+  tbody tr:hover{background:var(--vscode-list-hoverBackground)}
+  .empty-state{padding:28px 16px;text-align:center;opacity:.5}
+  .empty-state .empty-icon{font-size:2em;margin-bottom:10px;display:block;opacity:.6}
+  .empty-state .empty-text{font-size:.88em;line-height:1.6}
+  .match-count{font-size:.8em;opacity:.6;margin-left:8px}
+  .key-name{font-family:monospace;font-size:.82em;opacity:.65;margin-top:1px;word-break:break-all}
 </style>
 </head>
 <body>
 <h2>\u{1F511} CoreLLM Keys</h2>
 ${error ? `<div class="error-box">\u26A0 ${escapeHtml(error)}</div>` : ''}
-${keys.length > 0 ? `<p>${keys.length} key(s) found.</p>
-<table><thead><tr><th>Alias</th><th>Spend</th><th>Max Budget</th><th>Used</th><th>User</th><th>Team</th></tr></thead>
-<tbody>${keys.map(k => {
+${keys.length > 0 ? `
+<div class="search-bar">
+  <input type="text" class="search-input" id="keySearch" placeholder="\u{1F50D} Filter by alias, user, or team\u2026">
+  <span class="match-count" id="matchCount">Showing ${keys.length}</span>
+</div>
+<div class="table-wrap"><table id="keyTable"><thead><tr><th>Alias</th><th>Spend</th><th>Max Budget</th><th>Used</th><th>User</th><th>Team</th></tr></thead>
+<tbody>${keys.map((k, idx) => {
   const s = k.spend ?? 0;
   const m = k.max_budget;
   const pp = m && m > 0 ? ((s / m) * 100) : 0;
   const pc = pp > 80 ? 'red' : pp > 50 ? 'yellow' : 'green';
-  return `<tr>
-    <td><strong>${escapeHtml(k.key_alias || k.key_name || '(unnamed)')}</strong></td>
+  const alias2 = k.key_alias || k.key_name || '(unnamed)';
+  const keyVal = k.key || '';
+  return `<tr data-idx="${idx}" data-alias="${escapeHtml(alias2.toLowerCase())}" data-user="${escapeHtml((k.user_id ?? '').toLowerCase())}" data-team="${escapeHtml((k.team_id ?? '').toLowerCase())}">
+    <td><strong>${escapeHtml(alias2)}</strong>${keyVal ? `<div class="key-name">${escapeHtml(keyVal.slice(0, 20))}${keyVal.length > 20 ? '\u2026' : ''}</div>` : ''}</td>
     <td>${usd(s, 4)}</td>
     <td>${usd(m)}</td>
     <td>${m && m > 0 ? pp.toFixed(1) + '%' : '\u2014'}${m && m > 0 ? `<div class="bar-container"><div class="bar-fill ${pc}" style="width:${Math.min(100, pp)}%"></div></div>` : ''}</td>
     <td>${k.user_id ? `<span class="badge">${escapeHtml(k.user_id)}</span>` : '\u2014'}</td>
     <td>${k.team_id ? `<span class="badge">${escapeHtml(k.team_id)}</span>` : '\u2014'}</td>
   </tr>`;
-}).join('')}</tbody></table>` : '<p>No keys found.</p>'}
-<div class="footer">CoreLLM · ${keys.length} key(s) · Spend: ${usd(keys.reduce((s, k) => s + (k.spend ?? 0), 0), 4)} · Budget: ${usd(keys.reduce((s, k) => s + (k.max_budget ?? 0), 0))}</div>
+}).join('')}</tbody></table></div>` : '<div class="empty-state"><span class="empty-icon">\u{1F511}</span><div class="empty-text">No keys found.</div></div>'}
+<div class="footer">CoreLLM \u00B7 ${keys.length} key(s) \u00B7 Spend: ${usd(keys.reduce((s, k) => s + (k.spend ?? 0), 0), 4)} \u00B7 Budget: ${usd(keys.reduce((s, k) => s + (k.max_budget ?? 0), 0))}</div>
+<script>
+(function() {
+  const input = document.getElementById('keySearch');
+  const table = document.getElementById('keyTable');
+  const matchCount = document.getElementById('matchCount');
+  if (!input || !table) return;
+  input.addEventListener('input', function() {
+    const q = this.value.toLowerCase().trim();
+    const rows = table.querySelectorAll('tbody tr');
+    let visible = 0;
+    rows.forEach(row => {
+      const alias = row.getAttribute('data-alias') || '';
+      const user = row.getAttribute('data-user') || '';
+      const team = row.getAttribute('data-team') || '';
+      const txt = alias + ' ' + user + ' ' + team + ' ' + row.textContent.toLowerCase();
+      const match = !q || txt.includes(q);
+      row.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    matchCount.textContent = q ? 'Showing ' + visible + ' of ' + rows.length : 'Showing ' + rows.length;
+  });
+})();
+</script>
 </body>
 </html>`;
 }
@@ -770,8 +932,9 @@ class BalanceStatusBarManager {
     this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     this.statusBarItem.name = 'CoreLLM';
     this.statusBarItem.command = 'corellm.cycleDisplay';
-    this.statusBarItem.tooltip = 'CoreLLM \u2014 Click to cycle display info';
-    this.statusBarItem.text = '$(coin) CoreLLM: ...';
+    this.statusBarItem.tooltip = 'CoreLLM \u2014 Click to cycle display (spend / usage / budget)';
+    this.statusBarItem.text = '$(graph) CoreLLM: \u2026';
+    this.statusBarItem.backgroundColor = undefined;
     this.statusBarItem.show();
     this.disposables.push(this.statusBarItem);
 
@@ -901,7 +1064,7 @@ class BalanceStatusBarManager {
       }
     });
 
-    this.budgetOverviewPanel.webview.html = '<html><body style="padding:20px;text-align:center"><p>Loading\u2026</p></body></html>';
+    this.budgetOverviewPanel.webview.html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:40px 20px;color:var(--vscode-foreground);background:var(--vscode-editor-background);text-align:center}.spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--vscode-panel-border);border-top-color:var(--vscode-focusBorder);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}p{opacity:.6;margin-top:16px}</style></head><body><div class="spinner"></div><p>Loading Budget Overview\u2026</p></body></html>`;
 
     let data: {
       keyInfo: KeyInfoResponse | null; providerBudgets: ProviderBudgetResponse | null;
@@ -995,7 +1158,7 @@ class BalanceStatusBarManager {
       'corellmSpendLogs', 'CoreLLM Spend Logs', vscode.ViewColumn.Beside, { enableScripts: false }
     );
     this.spendLogsPanel.onDidDispose(() => { this.spendLogsPanel = undefined; });
-    this.spendLogsPanel.webview.html = '<html><body style="padding:20px;text-align:center"><p>Loading\u2026</p></body></html>';
+    this.spendLogsPanel.webview.html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:40px 20px;color:var(--vscode-foreground);background:var(--vscode-editor-background);text-align:center}.spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--vscode-panel-border);border-top-color:var(--vscode-focusBorder);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}p{opacity:.6;margin-top:16px}</style></head><body><div class="spinner"></div><p>Loading Spend Logs\u2026</p></body></html>`;
 
     let logs: SpendLogEntry[] = [];
     let error: string | null = null;
@@ -1014,7 +1177,7 @@ class BalanceStatusBarManager {
       'corellmKeyList', 'CoreLLM Keys', vscode.ViewColumn.Beside, { enableScripts: false }
     );
     this.keyListPanel.onDidDispose(() => { this.keyListPanel = undefined; });
-    this.keyListPanel.webview.html = '<html><body style="padding:20px;text-align:center"><p>Loading\u2026</p></body></html>';
+    this.keyListPanel.webview.html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:40px 20px;color:var(--vscode-foreground);background:var(--vscode-editor-background);text-align:center}.spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--vscode-panel-border);border-top-color:var(--vscode-focusBorder);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}p{opacity:.6;margin-top:16px}</style></head><body><div class="spinner"></div><p>Loading Keys\u2026</p></body></html>`;
 
     let keys: KeyListItem[] = [];
     let error: string | null = null;
@@ -1058,7 +1221,7 @@ class BalanceStatusBarManager {
       usedPct = (spend / maxBudget) * 100;
     }
     const pctRemaining = maxBudget !== null && maxBudget > 0 ? 100 - usedPct : 100;
-    const prefix = 'CoreLLM: ';
+    const prefix = 'CoreLLM';
     let text: string;
     let color: string | undefined;
 
@@ -1067,69 +1230,72 @@ class BalanceStatusBarManager {
     switch (m) {
       case 0: // Remaining budget
         if (hasBudget) {
-          text = `$(coin) ${prefix}$${remaining!.toFixed(2)} left`;
+          text = `$(database) ${prefix}: $${remaining!.toFixed(2)} left`;
           if (pctRemaining <= this.config.budgetWarningThreshold) {
             color = new vscode.ThemeColor('statusBarItem.warningForeground')?.toString() || '#ffcc00';
           }
         } else {
-          text = `$(coin) ${prefix}$${spend.toFixed(2)} spent`;
+          text = `$(graph) ${prefix}: $${spend.toFixed(2)} spent`;
         }
         break;
       case 1: // Usage percentage with ASCII bar
         if (hasBudget) {
           const bar = this.asciiBar(usedPct);
-          text = `$(coin) ${prefix}${bar} ${usedPct.toFixed(1)}% used`;
+          text = `$(graph) ${prefix}: ${bar} ${usedPct.toFixed(1)}%`;
           if (pctRemaining <= this.config.budgetWarningThreshold) {
             color = new vscode.ThemeColor('statusBarItem.warningForeground')?.toString() || '#ffcc00';
           }
         } else {
-          text = `$(coin) ${prefix}$${spend.toFixed(2)} spent`;
+          text = `$(graph) ${prefix}: $${spend.toFixed(2)} spent`;
         }
         break;
       case 2: // Total spend (consumed)
-        text = `$(coin) ${prefix}$${spend.toFixed(2)} spent`;
+        text = `$(graph) ${prefix}: $${spend.toFixed(2)} spent`;
         break;
       case 3: // Budget total
         if (hasBudget) {
-          text = `$(coin) ${prefix}$${maxBudget!.toFixed(2)} budget`;
+          text = `$(chip) ${prefix}: $${maxBudget!.toFixed(2)} budget`;
         } else {
-          text = `$(coin) ${prefix}unlimited`;
+          text = `$(chip) ${prefix}: unlimited`;
         }
         break;
       default:
-        text = `$(coin) ${prefix}$${spend.toFixed(2)} spent`;
+        text = `$(graph) ${prefix}: $${spend.toFixed(2)} spent`;
     }
     return { text, tooltip: this.buildTooltip(data), color };
   }
 
   private buildTooltip(data: KeyInfoResponse): string {
-    const lines: string[] = ['**CoreLLM**', ''];
+    const lines: string[] = ['**CoreLLM** \u2014 LiteLLM Balance Monitor', ''];
     const alias = data.key_alias || data.key_name || data.key || 'N/A';
-    lines.push(`**Key:** \`${alias}\``);
+    lines.push(`**\u{1F511} Key:** \`${alias}\``);
     const spend = data.spend ?? 0;
     const maxBudget = data.max_budget ?? null;
 
     if (maxBudget !== null && maxBudget > 0) {
       const remaining = Math.max(0, maxBudget - spend);
-      lines.push(`**Spend:** $${spend.toFixed(4)}`);
-      lines.push(`**Max Budget:** $${maxBudget.toFixed(2)}`);
-      lines.push(`**Remaining:** $${remaining.toFixed(4)}`);
-      lines.push(`**Usage:** ${((spend / maxBudget) * 100).toFixed(1)}%`);
+      const pct = ((spend / maxBudget) * 100);
+      const bar = this.asciiBar(pct);
+      lines.push(`**\uD83D\uDCB0 Spend:** $${spend.toFixed(4)}`);
+      lines.push(`**\uD83C\uDFAF Max Budget:** $${maxBudget.toFixed(2)}`);
+      lines.push(`**\uD83D\uDCE6 Remaining:** $${remaining.toFixed(4)}`);
+      lines.push(`**\uD83D\uDCCA Usage:** ${pct.toFixed(1)}% ${bar}`);
+      if (data.budget_duration) lines.push(`**\uD83D\uDD52 Budget Duration:** ${data.budget_duration}`);
     } else {
-      lines.push(`**Spend:** $${spend.toFixed(4)}`);
-      lines.push('**Max Budget:** Not set (unlimited)');
+      lines.push(`**\uD83D\uDCB0 Spend:** $${spend.toFixed(4)}`);
+      lines.push('**\uD83D\uDCB8 Max Budget:** Not set (unlimited)');
     }
-    if (data.budget_duration) lines.push(`**Budget Duration:** ${data.budget_duration}`);
-    if (data.user_id) lines.push(`**User ID:** \`${data.user_id}\``);
-    if (data.team_id) lines.push(`**Team ID:** \`${data.team_id}\``);
+    if (data.user_id) lines.push(`**\uD83D\uDC64 User ID:** \`${data.user_id}\``);
+    if (data.team_id) lines.push(`**\uD83D\uDC65 Team ID:** \`${data.team_id}\``);
     if (data.models && data.models.length > 0) {
       const ml = data.models.slice(0, 5).join(', ');
-      lines.push(`**Models:** ${ml}${data.models.length > 5 ? ` +${data.models.length - 5} more` : ''}`);
+      lines.push(`**\u{1F4CB} Models:** ${ml}${data.models.length > 5 ? ` +${data.models.length - 5} more` : ''}`);
     }
     lines.push('');
-    lines.push('$(refresh) Click to refresh');
-    lines.push('$(organization) Budget Overview -> Ctrl+Shift+B');
-    lines.push(`$(calendar) Duration: ${DURATION_LABELS[this.config.reportDuration]} \u2014 click "Set Report Duration" to change`);
+    lines.push('---');
+    lines.push('$(refresh) Click to cycle display');
+    lines.push('$(organization) Budget Overview');
+    lines.push(`$(calendar) Range: ${DURATION_LABELS[this.config.reportDuration]}`);
     return lines.join('\n');
   }
 
