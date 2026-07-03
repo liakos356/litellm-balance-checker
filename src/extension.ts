@@ -415,8 +415,11 @@ function buildBudgetOverviewHtml(data: {
   reportError: string | null;
   durationLabel?: string;
   dateRange?: string;
+  currentDuration?: string;
+  customStart?: string;
+  customEnd?: string;
 }): string {
-  const { keyInfo, providerBudgets, globalReport, spendLogs, keyError, providerError, reportError, durationLabel, dateRange } = data;
+  const { keyInfo, providerBudgets, globalReport, spendLogs, keyError, providerError, reportError, durationLabel, dateRange, currentDuration, customStart, customEnd } = data;
 
   // Aggregate from report
   let totalSpend = 0;
@@ -507,10 +510,34 @@ function buildBudgetOverviewHtml(data: {
   .legend{font-size:.75em;margin-top:4px}
   .legend-item{display:inline-block;margin-right:12px;white-space:nowrap}
   .legend-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+
+  /* Datepicker toolbar */
+  .toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px;padding:10px 14px;background:var(--vscode-editorWidget-background);border:1px solid var(--vscode-widget-border);border-radius:8px}
+  .toolbar-btn{padding:4px 12px;border:1px solid var(--vscode-panel-border);border-radius:4px;background:transparent;color:var(--vscode-foreground);cursor:pointer;font-size:.82em;font-family:inherit;transition:background .15s}
+  .toolbar-btn:hover{background:var(--vscode-list-hoverBackground)}
+  .toolbar-btn.active{background:var(--vscode-button-background);color:var(--vscode-button-foreground);border-color:var(--vscode-button-background)}
+  .toolbar-btn.active:hover{background:var(--vscode-button-hoverBackground)}
+  .toolbar-sep{width:1px;height:24px;background:var(--vscode-panel-border);margin:0 4px}
+  .toolbar-label{font-size:.78em;opacity:.7;margin-right:2px}
+  .toolbar-date{background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border);border-radius:4px;padding:3px 6px;font-size:.82em;font-family:inherit}
 </style>
 </head>
 <body>
 <h2>\u{1F4CA} CoreLLM Budget Overview</h2>
+
+<!-- Datepicker Toolbar -->
+<div class="toolbar" id="toolbar">
+  <button class="toolbar-btn${currentDuration === '1h' ? ' active' : ''}" data-dur="1h">1h</button>
+  <button class="toolbar-btn${currentDuration === '24h' ? ' active' : ''}" data-dur="24h">24h</button>
+  <button class="toolbar-btn${currentDuration === '7d' ? ' active' : ''}" data-dur="7d">7d</button>
+  <button class="toolbar-btn${currentDuration === '30d' ? ' active' : ''}" data-dur="30d">30d</button>
+  <div class="toolbar-sep"></div>
+  <span class="toolbar-label">From:</span>
+  <input type="date" class="toolbar-date" id="dateStart" value="${customStart || ''}">
+  <span class="toolbar-label">To:</span>
+  <input type="date" class="toolbar-date" id="dateEnd" value="${customEnd || ''}">
+  <button class="toolbar-btn${currentDuration === 'custom' ? ' active' : ''}" id="applyCustom">Apply</button>
+</div>
 
 <!-- Key Info Card -->
 <div class="card">
@@ -595,6 +622,34 @@ ${modelChartData.length > 0 ? `
 </div>
 
 <div class="footer">CoreLLM \u00B7 Total spend: ${usd(effectiveTotalSpend)} \u00B7 ${providerCount} provider(s) \u00B7 ${globalReport.length} day(s) \u00B7 ${new Date().toLocaleString()}</div>
+<script>
+(function() {
+  const vscode = acquireVsCodeApi();
+
+  // Preset duration buttons
+  document.querySelectorAll('[data-dur]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      vscode.postMessage({ type: 'setDuration', duration: btn.dataset.dur });
+    });
+  });
+
+  // Apply custom date range
+  document.getElementById('applyCustom').addEventListener('click', () => {
+    const start = document.getElementById('dateStart').value;
+    const end = document.getElementById('dateEnd').value;
+    if (!start || !end) return;
+    vscode.postMessage({ type: 'setCustomDates', startDate: start, endDate: end });
+  });
+
+  // Also apply custom range on Enter in date fields
+  document.getElementById('dateStart').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('applyCustom').click();
+  });
+  document.getElementById('dateEnd').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('applyCustom').click();
+  });
+})();
+</script>
 </body>
 </html>`;
 }
@@ -830,9 +885,22 @@ class BalanceStatusBarManager {
   private async openBudgetOverview(): Promise<void> {
     if (this.budgetOverviewPanel) { this.budgetOverviewPanel.reveal(vscode.ViewColumn.One); return; }
     this.budgetOverviewPanel = vscode.window.createWebviewPanel(
-      'corellmBudgetOverview', 'CoreLLM Budget Overview', vscode.ViewColumn.One, { enableScripts: false }
+      'corellmBudgetOverview', 'CoreLLM Budget Overview', vscode.ViewColumn.One, { enableScripts: true }
     );
     this.budgetOverviewPanel.onDidDispose(() => { this.budgetOverviewPanel = undefined; });
+
+    // Handle messages from the webview
+    this.budgetOverviewPanel.webview.onDidReceiveMessage((msg) => {
+      switch (msg.type) {
+        case 'setDuration':
+          this.setReportDurationFromWebview(msg.duration);
+          break;
+        case 'setCustomDates':
+          this.setCustomDatesFromWebview(msg.startDate, msg.endDate);
+          break;
+      }
+    });
+
     this.budgetOverviewPanel.webview.html = '<html><body style="padding:20px;text-align:center"><p>Loading\u2026</p></body></html>';
 
     let data: {
@@ -866,7 +934,34 @@ class BalanceStatusBarManager {
     const dur = this.config.reportDuration;
     const durLabel = DURATION_LABELS[dur] || dur;
     const dr = getDateRange(dur, this.config.reportCustomStart, this.config.reportCustomEnd);
-    return buildBudgetOverviewHtml({ ...data, durationLabel: durLabel, dateRange: `${dr.start} \u2013 ${dr.end}` });
+    return buildBudgetOverviewHtml({
+      ...data,
+      durationLabel: durLabel,
+      dateRange: `${dr.start} \u2013 ${dr.end}`,
+      currentDuration: dur,
+      customStart: this.config.reportCustomStart || dr.start,
+      customEnd: this.config.reportCustomEnd || dr.end,
+    });
+  }
+
+  /** Set report duration from webview message and refresh */
+  private async setReportDurationFromWebview(duration: ReportDuration): Promise<void> {
+    const cfg = vscode.workspace.getConfiguration('corellm');
+    await cfg.update('reportDuration', duration, vscode.ConfigurationTarget.Global);
+    this.config = getConfig();
+    this.client = new CoreLLMApiClient(this.config);
+    if (this.budgetOverviewPanel) await this.refreshBudgetOverview();
+  }
+
+  /** Set custom date range from webview message and refresh */
+  private async setCustomDatesFromWebview(startDate: string, endDate: string): Promise<void> {
+    const cfg = vscode.workspace.getConfiguration('corellm');
+    await cfg.update('reportDuration', 'custom', vscode.ConfigurationTarget.Global);
+    await cfg.update('reportCustomStart', startDate, vscode.ConfigurationTarget.Global);
+    await cfg.update('reportCustomEnd', endDate, vscode.ConfigurationTarget.Global);
+    this.config = getConfig();
+    this.client = new CoreLLMApiClient(this.config);
+    if (this.budgetOverviewPanel) await this.refreshBudgetOverview();
   }
 
   /** Show a QuickPick to change the report duration, then refresh */
