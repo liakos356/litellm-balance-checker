@@ -1385,7 +1385,7 @@ let updateTimer: NodeJS.Timeout | undefined;
 
 const EXTENSION_ID = 'litellm-tools.corellm';
 const GITHUB_REPO = 'core-innovation/litellm-balance-checker';
-const CURRENT_VERSION = '0.3.0';
+const CURRENT_VERSION = '0.4.0';
 const LAST_NOTIFIED_KEY = 'corellm.lastNotifiedVersion';
 
 /** Try to fetch the latest tag from tags API (fallback when no releases exist). */
