@@ -3684,7 +3684,8 @@ function compareVersions(a: string, b: string): number {
 // ─── Activation ──────────────────────────────────────────────────────────────
 
 export function activate(context: vscode.ExtensionContext): void {
-  console.log("CoreLLM activating...");
+  try {
+    console.log("CoreLLM activating...");
 
   // Register update command
   context.subscriptions.push(
@@ -3740,6 +3741,12 @@ export function activate(context: vscode.ExtensionContext): void {
   updateTimer = setInterval(() => checkForUpdates(context), updateIntervalMs);
 
   console.log("CoreLLM activated");
+  } catch (err) {
+    console.error("CoreLLM activation failed:", err);
+    vscode.window.showErrorMessage(
+      `CoreLLM failed to activate: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 }
 
 export function deactivate(): void {
