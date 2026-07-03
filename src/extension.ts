@@ -3515,7 +3515,7 @@ let updateTimer: NodeJS.Timeout | undefined;
 
 const EXTENSION_ID = "litellm-tools.corellm";
 const GITHUB_REPO = "core-innovation/litellm-balance-checker";
-const CURRENT_VERSION = "0.7.3";
+const CURRENT_VERSION = "0.7.4";
 const LAST_NOTIFIED_KEY = "corellm.lastNotifiedVersion";
 const LAST_SEEN_VERSION_KEY = "corellm.lastSeenVersion";
 
@@ -3527,10 +3527,16 @@ function createTimeoutSignal(ms: number): { signal: AbortSignal; clear: () => vo
   return { signal: controller.signal, clear: () => clearTimeout(timer) };
 }
 
+/** Check if a GitHub API response indicates rate limiting. */
+function isRateLimited(status: number, body: string): boolean {
+  if (status !== 403 && status !== 429) return false;
+  return /rate limit|too many requests/i.test(body);
+}
+
 /** Try to fetch the latest tag from tags API (fallback when no releases exist). */
 async function fetchLatestTagFromTags(): Promise<{
   tag: string;
-  vsixUrl: string;
+  releaseUrl: string;
 } | null> {
   const { signal, clear } = createTimeoutSignal(8000);
   const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/tags`, {
@@ -3554,9 +3560,8 @@ async function fetchLatestTagFromTags(): Promise<{
     });
   const best = versionTags[0] || tags[0];
   const tag = best.name.replace(/^v/, "");
-  // Build raw download URL from tag ref — VSIX is tracked in the repo root
-  const vsixUrl = `https://raw.githubusercontent.com/${GITHUB_REPO}/v${tag}/corellm-${tag}.vsix`;
-  return { tag, vsixUrl };
+  const releaseUrl = `https://github.com/${GITHUB_REPO}/releases/tag/v${tag}`;
+  return { tag, releaseUrl };
 }
 
 async function checkForUpdates(
@@ -3578,6 +3583,27 @@ async function checkForUpdates(
     );
     clear();
 
+    // Handle GitHub API errors gracefully
+    if (!releaseRes.ok) {
+      const bodyText = await releaseRes.text().catch(() => "");
+      const rateLimited = isRateLimited(releaseRes.status, bodyText);
+
+      if (rateLimited) {
+        console.warn(`CoreLLM update check: GitHub API rate limited (${releaseRes.status})`);
+        if (showUpToDate) {
+          vscode.window.showWarningMessage(
+            "Could not check for updates: GitHub API rate limit reached. Try again later.",
+          );
+        }
+        return;
+      }
+
+      // Non-rate-limit error (404, etc.) — fall through to tags fallback
+      console.log(
+        `CoreLLM update check: releases/latest returned ${releaseRes.status}, falling back to tags`,
+      );
+    }
+
     let latestTag: string | null = null;
     let vsixDownloadUrl: string | null = null;
     let releaseUrl: string | null = null;
@@ -3598,23 +3624,24 @@ async function checkForUpdates(
       }
     }
 
-    // Fall back to tags if no release found
+    // Fall back to tags if no release found (no releases exist or 404)
     if (!latestTag) {
       const tagInfo = await fetchLatestTagFromTags();
       if (tagInfo) {
         latestTag = tagInfo.tag;
-        vsixDownloadUrl = tagInfo.vsixUrl;
-        releaseUrl = `https://github.com/${GITHUB_REPO}/tree/v${tagInfo.tag}`;
+        releaseUrl = tagInfo.releaseUrl;
+        // No direct VSIX download URL from tags — user will be directed to releases page
+        vsixDownloadUrl = null;
       }
     }
 
     if (!latestTag) {
+      console.log("CoreLLM update check: no releases or tags found");
       if (showUpToDate) {
         vscode.window.showInformationMessage(
-          "No releases or tags found in the repository.",
+          "Could not find any releases or version tags for CoreLLM.",
         );
       }
-
       return;
     }
 
@@ -3628,41 +3655,74 @@ async function checkForUpdates(
       if (lastNotified === latestTag) return;
       await context.globalState.update(LAST_NOTIFIED_KEY, latestTag);
 
-      const hasVsix = !!vsixDownloadUrl;
-      const actions = hasVsix
-        ? ["Update & Reload", "Download", "Dismiss"]
-        : ["Download", "Dismiss"];
-      const action = await vscode.window.showInformationMessage(
-        `CoreLLM v${latestTag} available! (current: v${CURRENT_VERSION})`,
-        ...actions,
-      );
+      const releaseDisplayUrl = releaseUrl || `https://github.com/${GITHUB_REPO}/releases`;
 
-      if (action === "Update & Reload" && vsixDownloadUrl) {
-        await vscode.window.withProgress(
-          {
-            location: vscode.ProgressLocation.Notification,
-            title: "Downloading update...",
-          },
-          async () => {
-            const dl = await fetch(vsixDownloadUrl);
-            if (!dl.ok) throw new Error("Download failed");
-            const buf = Buffer.from(await dl.arrayBuffer());
-            const tmpPath = `${os.tmpdir()}/corellm-${latestTag}.vsix`;
-            fs.writeFileSync(tmpPath, buf);
-            await vscode.commands.executeCommand(
-              "workbench.extensions.installExtension",
-              vscode.Uri.file(tmpPath),
+      // User-facing version string with "v" prefix
+      const latestDisplay = `v${latestTag}`;
+      const currentDisplay = `v${CURRENT_VERSION}`;
+
+      if (vsixDownloadUrl) {
+        // Full flow: download VSIX directly and install
+        const actions = ["Update & Reload", "Open Releases Page", "Dismiss"] as const;
+        const action = await vscode.window.showInformationMessage(
+          `CoreLLM ${latestDisplay} available! (current: ${currentDisplay})`,
+          ...actions,
+        );
+
+        if (action === "Update & Reload") {
+          let downloadFailed = false;
+          await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: `Downloading CoreLLM ${latestDisplay}...`,
+            },
+            async () => {
+              try {
+                const dl = await fetch(vsixDownloadUrl!);
+                if (!dl.ok) throw new Error(`Download failed (HTTP ${dl.status})`);
+                const buf = Buffer.from(await dl.arrayBuffer());
+                const tmpPath = `${os.tmpdir()}/corellm-${latestTag}.vsix`;
+                fs.writeFileSync(tmpPath, buf);
+                await vscode.commands.executeCommand(
+                  "workbench.extensions.installExtension",
+                  vscode.Uri.file(tmpPath),
+                );
+              } catch (err) {
+                downloadFailed = true;
+                throw err;
+              }
+            },
+          );
+
+          if (downloadFailed) {
+            vscode.window.showErrorMessage(
+              `Failed to download CoreLLM ${latestDisplay}. Check your connection or download manually from the releases page.`,
+              "Open Releases Page",
+            ).then((sel) => {
+              if (sel) vscode.env.openExternal(vscode.Uri.parse(releaseDisplayUrl));
+            });
+          } else {
+            const reload = await vscode.window.showInformationMessage(
+              `CoreLLM ${latestDisplay} installed! Reload now to apply.`,
+              "Reload Now",
             );
-          },
+            if (reload) {
+              vscode.commands.executeCommand("workbench.action.reloadWindow");
+            }
+          }
+        } else if (action === "Open Releases Page") {
+          vscode.env.openExternal(vscode.Uri.parse(releaseDisplayUrl));
+        }
+      } else {
+        // No direct VSIX download — open releases page
+        const actions = ["Open Releases Page", "Dismiss"] as const;
+        const action = await vscode.window.showInformationMessage(
+          `CoreLLM ${latestDisplay} available! (current: ${currentDisplay})`,
+          ...actions,
         );
-        const reload = await vscode.window.showInformationMessage(
-          "Update installed! Reload now to apply.",
-          "Reload Now",
-        );
-        if (reload)
-          vscode.commands.executeCommand("workbench.action.reloadWindow");
-      } else if (action === "Download" && releaseUrl) {
-        vscode.env.openExternal(vscode.Uri.parse(releaseUrl));
+        if (action === "Open Releases Page") {
+          vscode.env.openExternal(vscode.Uri.parse(releaseDisplayUrl));
+        }
       }
     } else if (showUpToDate) {
       vscode.window.showInformationMessage(
@@ -3672,9 +3732,17 @@ async function checkForUpdates(
   } catch (err) {
     console.error("CoreLLM update check failed:", err);
     if (showUpToDate) {
-      vscode.window.showInformationMessage(
-        `Could not check for updates. Are you online?`,
-      );
+      const msg = err instanceof Error ? err.message : String(err);
+      // Try to detect network vs other errors
+      if (/fetch|network|connect|dns|econnrefused|enotfound|timeout/i.test(msg)) {
+        vscode.window.showWarningMessage(
+          "Could not check for updates — you may be offline.",
+        );
+      } else {
+        vscode.window.showWarningMessage(
+          `Update check failed: ${msg}`,
+        );
+      }
     }
   }
 }

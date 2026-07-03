@@ -2,6 +2,10 @@
 
 All notable changes to the CoreLLM VS Code extension.
 
+## 0.7.4
+
+- **Fixed:** Update checker was broken — repo had tags but no GitHub Releases. Created releases for all tags and improved `checkForUpdates` to handle rate limiting, download failures, network errors, and the "no VSIX asset" case gracefully.
+
 ## 0.7.3
 
 - **Improved:** Changelog "What's New" panel now parses `CHANGELOG.md` at runtime — no more manually keeping hardcoded data in sync, future entries appear automatically
