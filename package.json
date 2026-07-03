@@ -143,11 +143,13 @@
         "corellm.apiKey": {
           "type": "string",
           "default": "",
+          "editPresentation": "password",
           "description": "Your LiteLLM API key to check balance for. If empty, the Authorization header will use the key being queried."
         },
         "corellm.adminKey": {
           "type": "string",
           "default": "",
+          "editPresentation": "password",
           "description": "Admin/proxy master key (if required) for querying key info. Leave empty if using the same key as apiKey."
         },
         "corellm.username": {
