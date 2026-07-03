@@ -662,6 +662,172 @@ const COMMON_CSS = `
   .toast.show{opacity:1}
 `;
 
+// ─── Changelog / What's New Panel HTML ───────────────────────────────────────
+
+interface ChangelogEntry {
+  version: string;
+  items: string[];
+}
+
+const CHANGELOG_DATA: ChangelogEntry[] = [
+  {
+    version: '0.6.0',
+    items: [
+      'New: Tutorial/Getting Started panel (\u2192 CoreLLM: Show Tutorial)',
+      'New: Changelog panel \u2014 auto-shown on version upgrade (\u2192 CoreLLM: Show Changelog)',
+      'New: Key Health panel (\u2192 CoreLLM: Show Key Health)',
+      'New: Model Info panel (\u2192 CoreLLM: Show Model Info)',
+      'New: Spend by Tags panel (\u2192 CoreLLM: Show Spend by Tags)',
+      'New: Teams panel (\u2192 CoreLLM: Show Teams)',
+      'New: Activity panel (\u2192 CoreLLM: Show Activity)',
+      'New: Global Spend panel (\u2192 CoreLLM: Show Global Spend)',
+      'Improved: Budget Overview \u2014 daily cost trend line chart with interactive date pickers',
+      'Improved: Budget Overview \u2014 cost efficiency metrics (cost/req, cost/token, tokens/req)',
+      'Improved: Spend Logs \u2014 cost-per-token column and summary stats',
+      'Improved: Key List \u2014 over-budget keys highlighted with red border and "OVER" badge',
+      'Improved: Status bar \u2014 clickable cycle through 4 display modes',
+      'Improved: Error handling \u2014 better messages for 403 management permission errors',
+    ],
+  },
+  {
+    version: '0.5.0',
+    items: [
+      'New: Budget Overview dashboard with daily spend chart, provider budgets, model donut',
+      'New: Spend Logs panel with search filtering',
+      'New: Key List panel with spend/budget bars and CSV export',
+      'New: Theme toggle \u2014 panels support vscode/light/dark/high-contrast themes',
+      'New: Budget warnings in status bar',
+      'New: Auto-refresh with toggle commands',
+      'New: Update checker with one-click install from GitHub',
+      'New: Login-based auth with JWT session key extraction',
+      'New: Display cycling \u2014 click status bar to cycle views',
+      'Improved: Rich status bar tooltip with key info, spend, models',
+      'Improved: Auth fallback to /key/list',
+    ],
+  },
+  {
+    version: '0.4.0',
+    items: [
+      'New: Status bar balance display',
+      'New: Auto-refresh (configurable interval)',
+      'New: Rich hover tooltip with spend, budget, usage %, user/team, models',
+      'New: Multiple auth modes (API key, admin key, login)',
+      'New: Budget warnings with color change',
+      'New: API endpoint support for /key/info, /spend/logs, /provider/budgets, /global/spend/report, /key/list, /v1/models',
+    ],
+  },
+  {
+    version: '0.3.0',
+    items: [
+      'Initial release with basic LiteLLM proxy connection and balance checking',
+    ],
+  },
+];
+
+export function buildChangelogHtml(activeTheme?: string): string {
+  const theme = activeTheme || 'vscode';
+  const themeOverride = buildThemeOverrides(theme);
+  const currentVer = CHANGELOG_DATA[0].version;
+
+  const versionCards = CHANGELOG_DATA.map((entry, idx) => {
+    const isLatest = idx === 0;
+    const badges = entry.items.map(item => {
+      const icon = item.startsWith('New:') ? '\u2728' : item.startsWith('Improved:') ? '\u{1F527}' : item.startsWith('Fixed:') ? '\u2705' : '\u{1F4A1}';
+      return `<div class="cl-item"><span class="cl-icon">${icon}</span>${escapeHtml(item)}</div>`;
+    }).join('\n      ');
+    return `
+    <div class="card cl-version${isLatest ? ' cl-latest' : ''}">
+      <h3 class="cl-version-header">
+        <span>v${escapeHtml(entry.version)}</span>
+        ${isLatest ? '<span class="cl-badge">Latest</span>' : ''}
+      </h3>
+      <div class="cl-items">${badges}</div>
+    </div>`;
+  }).join('\n');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  ${CHANGELOG_CSS}
+  ${themeOverride}
+</style>
+</head>
+<body>
+<div class="hero">
+  <div class="hero-icon">\u{1F389}</div>
+  <h1>What\u2019s New <span class="version-badge">v${currentVer}</span></h1>
+  <p class="hero-subtitle">Stay up to date with the latest CoreLLM features and improvements.</p>
+  <div class="hero-actions">
+    <button class="toolbar-btn primary" onclick="openTutorial()">\u{1F4D6} Getting Started</button>
+    <button class="toolbar-btn" id="themeBtn">\u{1F3A8} Toggle Theme</button>
+  </div>
+</div>
+${versionCards}
+<div class="footer">
+  <span>CoreLLM v${currentVer}</span>
+  <span>\u00B7</span>
+  <a href="https://github.com/core-innovation/litellm-balance-checker/blob/main/CHANGELOG.md" target="_blank">Full Changelog</a>
+  <span>\u00B7</span>
+  <a href="https://github.com/core-innovation/litellm-balance-checker/releases" target="_blank">Releases</a>
+</div>
+<script>
+(function() {
+  const vscode = acquireVsCodeApi();
+  const themes = ['vscode', 'light', 'dark', 'hc'];
+  let currentThemeIdx = themes.indexOf('${theme}');
+  if (currentThemeIdx < 0) currentThemeIdx = 0;
+
+  document.getElementById('themeBtn').addEventListener('click', function() {
+    currentThemeIdx = (currentThemeIdx + 1) % themes.length;
+    vscode.postMessage({ type: 'setTheme', theme: themes[currentThemeIdx] });
+  });
+
+  window.openTutorial = function() {
+    vscode.postMessage({ type: 'openTutorial' });
+  };
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') vscode.postMessage({ type: 'close' });
+  });
+})();
+</script>
+</body>
+</html>`;
+}
+
+// ─── Changelog CSS ───────────────────────────────────────────────────────────
+
+const CHANGELOG_CSS = `
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px 24px 40px;color:var(--vscode-foreground);background:var(--vscode-editor-background);margin:0;max-width:800px;margin:0 auto;font-size:14px;line-height:1.6}
+  h1{font-size:2em;font-weight:700;margin:0 0 4px;display:flex;align-items:center;gap:12px}
+  h3{margin:0 0 12px;font-weight:600;font-size:1.05em}
+  a{color:var(--vscode-textLink-foreground,#3794ff);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .card{background:var(--vscode-editorWidget-background);border:1px solid var(--vscode-widget-border);border-radius:10px;padding:16px 20px;margin-bottom:14px}
+  .footer{margin-top:28px;padding:14px;text-align:center;font-size:.78em;opacity:.55;border-top:1px solid var(--vscode-panel-border);display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+  .version-badge{font-size:.5em;background:var(--vscode-badge-background);color:var(--vscode-badge-foreground);padding:3px 10px;border-radius:20px;font-weight:500;vertical-align:middle}
+  .toolbar-btn{padding:5px 14px;border:1px solid var(--vscode-panel-border);border-radius:5px;background:transparent;color:var(--vscode-foreground);cursor:pointer;font-size:.82em;font-family:inherit;transition:all .15s ease;white-space:nowrap}
+  .toolbar-btn:hover{background:var(--vscode-list-hoverBackground);border-color:var(--vscode-focusBorder)}
+  .toolbar-btn.primary{background:var(--vscode-button-background);color:var(--vscode-button-foreground);border-color:var(--vscode-button-background)}
+  .toolbar-btn.primary:hover{background:var(--vscode-button-hoverBackground)}
+
+  .hero{text-align:center;padding:28px 16px 16px;margin-bottom:16px}
+  .hero-icon{font-size:3em;margin-bottom:8px}
+  .hero-subtitle{font-size:1em;opacity:.7;max-width:480px;margin:8px auto 16px;line-height:1.5}
+  .hero-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+
+  .cl-version-header{display:flex;align-items:center;gap:10px}
+  .cl-badge{font-size:.7em;background:var(--vscode-editorGutter-addedForeground,#4ec9b0);color:#1e1e1e;padding:2px 10px;border-radius:20px;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+  .cl-latest{border-color:color-mix(in srgb,var(--vscode-editorGutter-addedForeground,#4ec9b0) 50%,transparent)}
+  .cl-items{display:flex;flex-direction:column;gap:6px}
+  .cl-item{display:flex;align-items:flex-start;gap:8px;font-size:.85em;line-height:1.5;padding:2px 0}
+  .cl-icon{flex-shrink:0;font-size:.9em;margin-top:2px;width:18px;text-align:center}
+`;
+
 function buildThemeOverrides(theme: string): string {
   if (theme === 'system' || theme === 'vscode') return '';
   if (theme === 'light') {

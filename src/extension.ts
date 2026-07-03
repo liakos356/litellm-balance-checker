@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as os from 'os';
 import * as fs from 'fs';
-import { buildTutorialHtml } from './tutorial';
+import { buildTutorialHtml, buildChangelogHtml } from './tutorial';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -2068,6 +2068,7 @@ class BalanceStatusBarManager {
   private spendLogsPanel: vscode.WebviewPanel | undefined;
   private keyListPanel: vscode.WebviewPanel | undefined;
   private tutorialPanel: vscode.WebviewPanel | undefined;
+  private changelogPanel: vscode.WebviewPanel | undefined;
   private globalSpendPanel: vscode.WebviewPanel | undefined;
   private teamsPanel: vscode.WebviewPanel | undefined;
   private activityPanel: vscode.WebviewPanel | undefined;
@@ -2136,6 +2137,7 @@ class BalanceStatusBarManager {
         });
       }),
       vscode.commands.registerCommand('corellm.showTutorial', () => this.openTutorial()),
+      vscode.commands.registerCommand('corellm.showChangelog', () => this.openChangelog()),
       vscode.commands.registerCommand('corellm.showGlobalSpend', () => this.openGlobalSpend()),
       vscode.commands.registerCommand('corellm.showTeams', () => this.openTeams()),
       vscode.commands.registerCommand('corellm.showActivity', () => this.openActivity()),
@@ -2239,6 +2241,7 @@ class BalanceStatusBarManager {
           if (this.spendLogsPanel) this.refreshSpendLogsPanel();
           if (this.keyListPanel) this.refreshKeyListPanel();
           if (this.tutorialPanel) this.refreshTutorial();
+          if (this.changelogPanel) this.refreshChangelog();
           break;
         case 'cancel':
           this.budgetOverviewPanel?.dispose();
@@ -2358,6 +2361,7 @@ class BalanceStatusBarManager {
           if (this.budgetOverviewPanel) this.refreshBudgetOverview();
           if (this.keyListPanel) this.refreshKeyListPanel();
           if (this.tutorialPanel) this.refreshTutorial();
+          if (this.changelogPanel) this.refreshChangelog();
           break;
         case 'close':
           this.spendLogsPanel?.dispose();
@@ -2405,6 +2409,7 @@ class BalanceStatusBarManager {
           if (this.budgetOverviewPanel) this.refreshBudgetOverview();
           if (this.spendLogsPanel) this.refreshSpendLogsPanel();
           if (this.tutorialPanel) this.refreshTutorial();
+          if (this.changelogPanel) this.refreshChangelog();
           break;
         case 'close':
           this.keyListPanel?.dispose();
@@ -2464,6 +2469,40 @@ class BalanceStatusBarManager {
   private refreshTutorial(): void {
     if (!this.tutorialPanel) return;
     this.tutorialPanel.webview.html = buildTutorialHtml(this.activeTheme);
+  }
+
+  // ── Changelog / What's New ──────────────────────────────────────────────
+
+  public openChangelog(): void {
+    if (this.changelogPanel) { this.changelogPanel.reveal(vscode.ViewColumn.One); return; }
+    this.changelogPanel = vscode.window.createWebviewPanel(
+      'corellmChangelog', 'CoreLLM Changelog', vscode.ViewColumn.One, { enableScripts: true }
+    );
+    this.changelogPanel.onDidDispose(() => { this.changelogPanel = undefined; });
+    this.changelogPanel.webview.onDidReceiveMessage((msg) => {
+      switch (msg.type) {
+        case 'setTheme':
+          this.activeTheme = msg.theme;
+          if (this.changelogPanel) this.refreshChangelog();
+          if (this.budgetOverviewPanel) this.refreshBudgetOverview();
+          if (this.spendLogsPanel) this.refreshSpendLogsPanel();
+          if (this.keyListPanel) this.refreshKeyListPanel();
+          if (this.tutorialPanel) this.refreshTutorial();
+          break;
+        case 'openTutorial':
+          this.openTutorial();
+          break;
+        case 'close':
+          this.changelogPanel?.dispose();
+          break;
+      }
+    });
+    this.refreshChangelog();
+  }
+
+  private refreshChangelog(): void {
+    if (!this.changelogPanel) return;
+    this.changelogPanel.webview.html = buildChangelogHtml(this.activeTheme);
   }
 
   // ── Global Spend Panel ──────────────────────────────────────────────────
@@ -2817,6 +2856,7 @@ class BalanceStatusBarManager {
     if (this.spendLogsPanel) this.refreshSpendLogsPanel();
     if (this.keyListPanel) this.refreshKeyListPanel();
     if (this.tutorialPanel) this.refreshTutorial();
+    if (this.changelogPanel) this.refreshChangelog();
     if (this.globalSpendPanel) this.refreshGlobalSpend();
     if (this.teamsPanel) this.refreshTeamsPanel();
     if (this.activityPanel) this.refreshActivityPanel();
@@ -3180,6 +3220,7 @@ const EXTENSION_ID = 'litellm-tools.corellm';
 const GITHUB_REPO = 'core-innovation/litellm-balance-checker';
 const CURRENT_VERSION = '0.6.0';
 const LAST_NOTIFIED_KEY = 'corellm.lastNotifiedVersion';
+const LAST_SEEN_VERSION_KEY = 'corellm.lastSeenVersion';
 
 /** Try to fetch the latest tag from tags API (fallback when no releases exist). */
 async function fetchLatestTagFromTags(): Promise<{ tag: string; vsixUrl: string } | null> {
@@ -3324,6 +3365,22 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.executeCommand('workbench.action.openSettings', '@ext:litellm-tools.corellm');
       }
     });
+  }
+
+  // Auto-show changelog on version upgrade
+  const lastSeen = context.globalState.get<string>(LAST_SEEN_VERSION_KEY);
+  if (lastSeen !== CURRENT_VERSION) {
+    setTimeout(() => {
+      if (lastSeen) {
+        // Upgrade detected — show what's new
+        manager?.openChangelog();
+      }
+      // Update the last seen version
+      context.globalState.update(LAST_SEEN_VERSION_KEY, CURRENT_VERSION);
+    }, 1500);
+  } else {
+    // Ensure version is stored for fresh installs
+    context.globalState.update(LAST_SEEN_VERSION_KEY, CURRENT_VERSION);
   }
 
   // Check for updates on startup (silent)

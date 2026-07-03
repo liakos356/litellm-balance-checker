@@ -71,6 +71,10 @@
         "title": "CoreLLM: Show Tutorial"
       },
       {
+        "command": "corellm.showChangelog",
+        "title": "CoreLLM: Show Changelog"
+      },
+      {
         "command": "corellm.showGlobalSpend",
         "title": "CoreLLM: Show Global Spend"
       },
