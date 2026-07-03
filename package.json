@@ -83,12 +83,13 @@
         "corellm.username": {
           "type": "string",
           "default": "",
-          "description": "LiteLLM UI username (for login-based auth). The extension will login and extract the embedded API key from the session."
+          "description": "LiteLLM UI username (for login-based auth, used together with password). The extension will login and extract the embedded API key from the session."
         },
         "corellm.password": {
           "type": "string",
           "default": "",
-          "description": "LiteLLM UI password (for login-based auth). Stored in VS Code secret storage."
+          "editPresentation": "password",
+          "description": "LiteLLM UI password (for login-based auth)."
         },
         "corellm.endpoint": {
           "type": "string",
