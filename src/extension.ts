@@ -70,6 +70,7 @@ interface GlobalSpendReportEntry {
           output_tokens?: number;
           requests?: number;
         }
+
       >;
     }>;
   }>;
@@ -1711,6 +1712,7 @@ ${
         .join("")}</tbody></table></div>`
     : '<div class="empty-state"><span class="empty-icon">\uD83D\uDCDD</span><div class="empty-text">No spend logs found.</div></div>'
 }
+
 <div class="footer">
   <span>CoreLLM \u00B7 Spend: ${usd(totalSpend, 4)}</span>
   <span>${logs.length} entries</span>
@@ -1833,6 +1835,7 @@ ${
         .join("")}</tbody></table></div>`
     : '<div class="empty-state"><span class="empty-icon">\u{1F511}</span><div class="empty-text">No keys found.</div></div>'
 }
+
 <div class="footer">
   <span>CoreLLM \u00B7 ${keys.length} key(s)</span>
   <span>Spend: ${usd(totalSpend, 4)}</span>
@@ -1924,16 +1927,11 @@ function buildGlobalSpendHtml(data: {
   const keyChart =
     keys.length > 0
       ? svgHBarChart(
-          keys
-            .slice(0, 15)
-            .map((k) => ({
-              label:
-                k.key_alias ||
-                k.key_name ||
-                k.api_key?.slice(0, 12) ||
-                "unknown",
-              value: k.total_spend ?? 0,
-            })),
+          keys.slice(0, 15).map((k) => ({
+            label:
+              k.key_alias || k.key_name || k.api_key?.slice(0, 12) || "unknown",
+            value: k.total_spend ?? 0,
+          })),
           maxKeySpend,
           340,
           18,
@@ -1944,12 +1942,10 @@ function buildGlobalSpendHtml(data: {
   const modelChart =
     models.length > 0
       ? svgHBarChart(
-          models
-            .slice(0, 15)
-            .map((m) => ({
-              label: m.model || "unknown",
-              value: m.total_spend ?? 0,
-            })),
+          models.slice(0, 15).map((m) => ({
+            label: m.model || "unknown",
+            value: m.total_spend ?? 0,
+          })),
           maxModelSpend,
           340,
           18,
@@ -1960,12 +1956,10 @@ function buildGlobalSpendHtml(data: {
   const teamChart =
     teams.length > 0
       ? svgHBarChart(
-          teams
-            .slice(0, 15)
-            .map((t) => ({
-              label: t.team_name || t.team_id || "unknown",
-              value: t.total_spend ?? 0,
-            })),
+          teams.slice(0, 15).map((t) => ({
+            label: t.team_name || t.team_id || "unknown",
+            value: t.total_spend ?? 0,
+          })),
           maxTeamSpend,
           340,
           18,
@@ -2345,12 +2339,10 @@ function buildSpendTagsHtml(data: {
   const chartData =
     tags.length > 0
       ? svgHBarChart(
-          tags
-            .slice(0, 15)
-            .map((t) => ({
-              label: t.tag_name || "unknown",
-              value: t.total_spend ?? 0,
-            })),
+          tags.slice(0, 15).map((t) => ({
+            label: t.tag_name || "unknown",
+            value: t.total_spend ?? 0,
+          })),
           maxVal,
           340,
           18,
@@ -2850,6 +2842,7 @@ class BalanceStatusBarManager {
       this.budgetOverviewPanel.reveal(vscode.ViewColumn.One);
       return;
     }
+
     this.budgetOverviewPanel = vscode.window.createWebviewPanel(
       "corellmBudgetOverview",
       "CoreLLM Budget Overview",
@@ -3033,6 +3026,7 @@ class BalanceStatusBarManager {
       this.spendLogsPanel.reveal(vscode.ViewColumn.Beside);
       return;
     }
+
     this.spendLogsPanel = vscode.window.createWebviewPanel(
       "corellmSpendLogs",
       "CoreLLM Spend Logs",
@@ -3100,6 +3094,7 @@ class BalanceStatusBarManager {
     } catch (err) {
       error = String(err);
     }
+
     if (this.spendLogsPanel)
       this.spendLogsPanel.webview.html = buildSpendLogsHtml(
         logs,
@@ -3115,6 +3110,7 @@ class BalanceStatusBarManager {
       this.keyListPanel.reveal(vscode.ViewColumn.Beside);
       return;
     }
+
     this.keyListPanel = vscode.window.createWebviewPanel(
       "corellmKeyList",
       "CoreLLM Keys",
@@ -3184,6 +3180,7 @@ class BalanceStatusBarManager {
     } catch (err) {
       error = String(err);
     }
+
     if (this.keyListPanel)
       this.keyListPanel.webview.html = buildKeyListHtml(
         keys,
@@ -3199,6 +3196,7 @@ class BalanceStatusBarManager {
       this.tutorialPanel.reveal(vscode.ViewColumn.One);
       return;
     }
+
     this.tutorialPanel = vscode.window.createWebviewPanel(
       "corellmTutorial",
       "CoreLLM Tutorial",
@@ -3246,6 +3244,7 @@ class BalanceStatusBarManager {
       this.changelogPanel.reveal(vscode.ViewColumn.One);
       return;
     }
+
     this.changelogPanel = vscode.window.createWebviewPanel(
       "corellmChangelog",
       "CoreLLM Changelog",
@@ -3288,6 +3287,7 @@ class BalanceStatusBarManager {
       this.globalSpendPanel.reveal(vscode.ViewColumn.Beside);
       return;
     }
+
     this.globalSpendPanel = vscode.window.createWebviewPanel(
       "corellmGlobalSpend",
       "CoreLLM Global Spend",
@@ -3384,6 +3384,7 @@ class BalanceStatusBarManager {
     } catch {
       /* ignore */
     }
+
     const rows: string[][] = [];
     rows.push(["--- Spend by Key ---", ""]);
     keys.forEach((k) =>
@@ -3434,6 +3435,7 @@ class BalanceStatusBarManager {
       this.teamsPanel.reveal(vscode.ViewColumn.Beside);
       return;
     }
+
     this.teamsPanel = vscode.window.createWebviewPanel(
       "corellmTeams",
       "CoreLLM Teams",
@@ -3479,6 +3481,7 @@ class BalanceStatusBarManager {
     } catch (err) {
       error = String(err);
     }
+
     try {
       const dr = getDateRange(
         this.config.reportDuration,
@@ -3490,6 +3493,7 @@ class BalanceStatusBarManager {
     } catch (err) {
       spendError = String(err);
     }
+
     if (this.teamsPanel) {
       this.teamsPanel.webview.html = buildTeamsHtml({
         teams,
@@ -3510,6 +3514,7 @@ class BalanceStatusBarManager {
     } catch {
       /* ignore */
     }
+
     const headers = ["Team", "Spend", "Max Budget", "Used %", "Blocked"];
     const rows = teams.map((t) =>
       [
@@ -3538,6 +3543,7 @@ class BalanceStatusBarManager {
       this.activityPanel.reveal(vscode.ViewColumn.Beside);
       return;
     }
+
     this.activityPanel = vscode.window.createWebviewPanel(
       "corellmActivity",
       "CoreLLM Activity",
@@ -3586,6 +3592,7 @@ class BalanceStatusBarManager {
     } catch (err) {
       error = String(err);
     }
+
     if (this.activityPanel) {
       this.activityPanel.webview.html = buildActivityHtml({
         activity,
@@ -3609,10 +3616,12 @@ class BalanceStatusBarManager {
     } catch {
       /* ignore */
     }
+
     if (activity.length === 0) {
       vscode.window.showWarningMessage("No activity data to export.");
       return;
     }
+
     const headers = ["Date", "Spend", "Tokens", "Requests"];
     const rows = activity.map((a) =>
       [
@@ -3638,6 +3647,7 @@ class BalanceStatusBarManager {
       this.modelInfoPanel.reveal(vscode.ViewColumn.Beside);
       return;
     }
+
     this.modelInfoPanel = vscode.window.createWebviewPanel(
       "corellmModelInfo",
       "CoreLLM Model Info",
@@ -3712,6 +3722,7 @@ class BalanceStatusBarManager {
     } catch {
       /* ignore */
     }
+
     const headers = [
       "Model",
       "Provider",
@@ -3751,6 +3762,7 @@ class BalanceStatusBarManager {
       this.spendTagsPanel.reveal(vscode.ViewColumn.Beside);
       return;
     }
+
     this.spendTagsPanel = vscode.window.createWebviewPanel(
       "corellmSpendTags",
       "CoreLLM Spend by Tags",
@@ -3799,6 +3811,7 @@ class BalanceStatusBarManager {
     } catch (err) {
       error = String(err);
     }
+
     if (this.spendTagsPanel) {
       this.spendTagsPanel.webview.html = buildSpendTagsHtml({
         tags,
@@ -3822,10 +3835,12 @@ class BalanceStatusBarManager {
     } catch {
       /* ignore */
     }
+
     if (tags.length === 0) {
       vscode.window.showWarningMessage("No tag data to export.");
       return;
     }
+
     const headers = ["Tag", "Spend", "Tokens", "Requests"];
     const rows = tags.map((t) =>
       [
@@ -3851,6 +3866,7 @@ class BalanceStatusBarManager {
       this.keyHealthPanel.reveal(vscode.ViewColumn.Beside);
       return;
     }
+
     this.keyHealthPanel = vscode.window.createWebviewPanel(
       "corellmKeyHealth",
       "CoreLLM Key Health",
@@ -3891,6 +3907,7 @@ class BalanceStatusBarManager {
       error = String(err);
       healthResult = {} as KeyHealthResponse;
     }
+
     const health: KeyHealthResponse[] = healthResult?.key
       ? [healthResult]
       : (healthResult as unknown as KeyHealthResponse[]);
@@ -4009,10 +4026,12 @@ class BalanceStatusBarManager {
     } catch {
       /* ignore */
     }
+
     if (logs.length === 0) {
       vscode.window.showWarningMessage("No spend logs to export.");
       return;
     }
+
     const headers = [
       "Time",
       "Model",
@@ -4051,10 +4070,12 @@ class BalanceStatusBarManager {
     } catch {
       /* ignore */
     }
+
     if (keys.length === 0) {
       vscode.window.showWarningMessage("No keys to export.");
       return;
     }
+
     const headers = [
       "Alias",
       "Key",
@@ -4506,6 +4527,10 @@ async function checkForUpdates(
       return;
     }
 
+    console.log(
+      `CoreLLM update check: latest=${latestTag}, current=${CURRENT_VERSION}, result=${compareVersions(latestTag, CURRENT_VERSION) > 0 ? "update available" : "up to date"}`,
+    );
+
     if (compareVersions(latestTag, CURRENT_VERSION) > 0) {
       // Only notify once per version
       const lastNotified = context.globalState.get<string>(LAST_NOTIFIED_KEY);
@@ -4553,7 +4578,8 @@ async function checkForUpdates(
         `CoreLLM is up to date (v${CURRENT_VERSION}).`,
       );
     }
-  } catch {
+  } catch (err) {
+    console.error("CoreLLM update check failed:", err);
     if (showUpToDate) {
       vscode.window.showInformationMessage(
         `Could not check for updates. Are you online?`,
@@ -4562,13 +4588,14 @@ async function checkForUpdates(
   }
 }
 
-/** Simple semver compare. Returns >0 if a>b, <0 if a<b, 0 if equal. */
+/** Simple semver compare. Returns >0 if a>b, <0 if a<b, 0 if equal.
+ *  Handles non-numeric segments gracefully (e.g. "1.0.0-beta" → NaN segments treated as 0). */
 function compareVersions(a: string, b: string): number {
-  const pa = a.split(".").map(Number);
-  const pb = b.split(".").map(Number);
+  const pa = a.split(".").map((s) => parseInt(s, 10) || 0);
+  const pb = b.split(".").map((s) => parseInt(s, 10) || 0);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const na = pa[i] || 0;
-    const nb = pb[i] || 0;
+    const na = pa[i] ?? 0;
+    const nb = pb[i] ?? 0;
     if (na !== nb) return na - nb;
   }
 
@@ -4641,9 +4668,11 @@ export function deactivate(): void {
     clearInterval(updateTimer);
     updateTimer = undefined;
   }
+
   if (manager) {
     manager.dispose();
     manager = undefined;
   }
+
   console.log("CoreLLM deactivated");
 }
