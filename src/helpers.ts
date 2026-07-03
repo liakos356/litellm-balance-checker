@@ -360,4 +360,9 @@ export const COMMON_CSS = `
   .health-card.unhealthy{background:color-mix(in srgb,var(--vscode-errorForeground,#f14c4c) 15%,transparent);border:1px solid color-mix(in srgb,var(--vscode-errorForeground,#f14c4c) 40%,transparent)}
   .health-card .endpoint-name{font-family:monospace;font-size:.85em;word-break:break-all}
   .health-icon{font-size:2em;margin-bottom:4px}
+
+  /* Admin permissions banner */
+  .admin-banner{background:color-mix(in srgb,var(--vscode-editorWarning-foreground,#e2b714) 15%,transparent);border:1px solid color-mix(in srgb,var(--vscode-editorWarning-foreground,#e2b714) 40%,transparent);border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:.85em;line-height:1.5;color:var(--vscode-editorWarning-foreground,#e2b714)}
+  .admin-banner .admin-banner-link{text-decoration:underline;cursor:pointer;font-weight:500}
+  .admin-banner .admin-banner-link:hover{opacity:.8}
 `;

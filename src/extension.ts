@@ -200,6 +200,15 @@ function buildBudgetOverviewHtml(data: {
   const theme = activeTheme || "vscode";
   const themeOverride = buildThemeOverrides(theme);
 
+  // Detect permission errors (non-admin user)
+  const permErrorsBudget: string[] = [];
+  for (const err of [providerError, reportError]) {
+    if (err && (err.includes("lacks management permissions") || err.includes("403"))) {
+      permErrorsBudget.push(err);
+    }
+  }
+  const isPermissionsIssueBudget = permErrorsBudget.length > 0;
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -233,6 +242,9 @@ function buildBudgetOverviewHtml(data: {
 <!-- Toast notification -->
 <div class="toast" id="toast"></div>
 
+<!-- Admin permissions banner -->
+${isPermissionsIssueBudget ? `<div class="admin-banner">\u26A0\uFE0F Limited view: some features require an admin/proxy master key. <a href="#" class="admin-banner-link" onclick="(function(){const v=acquireVsCodeApi();v.postMessage({type:'openSettings'})})()">Configure in settings</a></div>` : ""}
+
 <!-- Summary bar -->
 <div class="summary-bar">
   <div class="summary-item"><div class="summary-value">${usd(effectiveTotalSpend)}</div><div class="summary-label">Total Spend</div></div>
@@ -261,7 +273,7 @@ function buildBudgetOverviewHtml(data: {
 <!-- Provider Budgets Card -->
 <div class="card">
   <h3>\u2601\uFE0F Provider Budgets ${providerCount > 0 ? `<span class="badge">${providerCount}</span>` : ""}</h3>
-  ${providerError ? `<div class="error-box">\u26A0 ${escapeHtml(providerError)}</div>` : ""}
+  ${providerError && !isPermissionsIssueBudget ? `<div class="error-box">\u26A0 ${escapeHtml(providerError)}</div>` : ""}
   ${
     providers && providerCount > 0
       ? `
@@ -294,7 +306,7 @@ function buildBudgetOverviewHtml(data: {
 <div class="card">
   <h3>\uD83C\uDF10 Daily Spend ${durationLabel ? "\\(" + durationLabel + "\\)" : ""} <span class="badge">${globalReport.length} days</span></h3>
   ${dateRange ? `<p style="font-size:.8em;opacity:.6;margin:4px 0 0">${escapeHtml(dateRange)}</p>` : ""}
-  ${reportError ? `<div class="error-box">\u26A0 ${escapeHtml(reportError)}</div>` : ""}
+  ${reportError && !isPermissionsIssueBudget ? `<div class="error-box">\u26A0 ${escapeHtml(reportError)}</div>` : ""}
   ${
     globalReport.length > 0
       ? `
@@ -1794,6 +1806,9 @@ class BalanceStatusBarManager {
           if (this.tutorialPanel) this.refreshTutorial();
           if (this.changelogPanel) this.refreshChangelog();
           break;
+        case "openSettings":
+          vscode.commands.executeCommand("workbench.action.openSettings", "@ext:litellm-tools.corellm");
+          break;
         case "cancel":
           this.budgetOverviewPanel?.dispose();
           break;
@@ -3029,6 +3044,9 @@ class BalanceStatusBarManager {
         case "exportCsv": this.exportUnifiedDashboardCsv(); break;
         case "setTheme": this.activeTheme = msg.theme; this.refreshAllPanels(); break;
         case "switchTab": this.unifiedActiveTab = msg.tab; break;
+        case "openSettings":
+          vscode.commands.executeCommand("workbench.action.openSettings", "@ext:litellm-tools.corellm");
+          break;
         case "close": this.unifiedDashboardPanel?.dispose(); break;
       }
     });
@@ -3065,6 +3083,24 @@ class BalanceStatusBarManager {
       this.client.fetchGlobalSpendProviders(dr.start, dr.end),
     ]);
     if (results[0].status === "fulfilled") keyInfo = results[0].value; else keyError = (results[0].reason as Error)?.message ?? "Unknown error";
+    // Fall back to /key/list if keyInfo has no spend and no keyToQuery is set
+    if (keyInfo && !(keyInfo.spend ?? 0) && !this.config.keyToQuery) {
+      try {
+        const list = await this.client.fetchKeyList(1, 50);
+        const firstWithSpend = (list.keys ?? []).find((k) => (k.spend ?? 0) > 0);
+        if (firstWithSpend) {
+          keyInfo = {
+            ...keyInfo,
+            spend: firstWithSpend.spend,
+            max_budget: firstWithSpend.max_budget,
+            key_alias: firstWithSpend.key_alias || keyInfo.key_alias,
+            key_name: firstWithSpend.key_name || keyInfo.key_name,
+          };
+        }
+      } catch {
+        /* fallback failed, keep original keyInfo */
+      }
+    }
     if (results[1].status === "fulfilled") providerBudgets = results[1].value; else providerError = (results[1].reason as Error)?.message ?? "Unknown error";
     if (results[2].status === "fulfilled") globalReport = results[2].value; else reportError = (results[2].reason as Error)?.message ?? "Unknown error";
     if (results[3].status === "fulfilled") spendLogs = results[3].value;
@@ -3598,7 +3634,7 @@ let updateTimer: NodeJS.Timeout | undefined;
 
 const EXTENSION_ID = "litellm-tools.corellm";
 const GITHUB_REPO = "core-innovation/litellm-balance-checker";
-const CURRENT_VERSION = "0.8.0";
+const CURRENT_VERSION = "0.8.1";
 const LAST_NOTIFIED_KEY = "corellm.lastNotifiedVersion";
 const LAST_SEEN_VERSION_KEY = "corellm.lastSeenVersion";
 

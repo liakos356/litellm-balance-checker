@@ -2,6 +2,12 @@
 
 All notable changes to the CoreLLM VS Code extension.
 
+## 0.8.1
+
+- **Fixed:** Dashboard total spend now correctly shows key spend instead of 0 when global report is unavailable for non-admin users
+- **Fixed:** Non-admin users no longer see permission error boxes in Dashboard and Budget Overview — a friendly banner now points them to configure admin credentials
+- **Improved:** Added `/key/list` fallback in Dashboard to populate spend data when the key itself has no recorded spend
+
 ## 0.8.0
 
 - **Security:** Credentials (`apiKey`, `adminKey`, `password`) are now stored in the OS keychain via VS Code's `SecretStorage` API instead of plaintext `settings.json`

@@ -60,6 +60,15 @@ export function buildUnifiedDashboardHtml(data: UnifiedDashboardData): string {
   const theme = activeTheme || "vscode";
   const themeOverride = buildThemeOverrides(theme);
 
+  // Detect permission errors (non-admin user)
+  const permErrors: string[] = [];
+  for (const err of [providerError, reportError, healthError, readinessError, providerSpendError]) {
+    if (err && (err.includes("lacks management permissions") || err.includes("403"))) {
+      permErrors.push(err);
+    }
+  }
+  const isPermissionsIssue = permErrors.length > 0;
+
   // Aggregate spend data
   let totalSpend = 0;
   let totalRequests = 0;
@@ -168,6 +177,9 @@ export function buildUnifiedDashboardHtml(data: UnifiedDashboardData): string {
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- Admin permissions banner -->
+${isPermissionsIssue ? `<div class="admin-banner">\u26A0\uFE0F Limited view: some dashboard features require an admin/proxy master key. <span class="admin-banner-link" onclick="vscode.postMessage({type:'openSettings'})">Configure in settings</span></div>` : ""}
+
 <!-- ========================= OVERVIEW TAB ========================= -->
 <div class="tab-content${activeTab === "overview" ? " active" : ""}" id="tab-overview">
 
@@ -261,8 +273,8 @@ ${
 
 <!-- ========================= HEALTH TAB ========================= -->
 <div class="tab-content${activeTab === "health" ? " active" : ""}" id="tab-health">
-${healthError ? `<div class="error-box">\u26A0 ${escapeHtml(healthError)}</div>` : ""}
-${readinessError ? `<div class="error-box">\u26A0 ${escapeHtml(readinessError)}</div>` : ""}
+${healthError && !isPermissionsIssue ? `<div class="error-box">\u26A0 ${escapeHtml(healthError)}</div>` : ""}
+${readinessError && !isPermissionsIssue ? `<div class="error-box">\u26A0 ${escapeHtml(readinessError)}</div>` : ""}
 
 <div class="summary-bar">
   <div class="summary-item"><div class="summary-value ok">${healthyCount}</div><div class="summary-label">Healthy</div></div>
@@ -320,7 +332,7 @@ ${
   <div class="summary-item"><div class="summary-value">${usd(totalProviderSpend, 4)}</div><div class="summary-label">Provider Spend</div></div>
   <div class="summary-item"><div class="summary-value">${providerList.length}</div><div class="summary-label">Providers</div></div>
 </div>
-${providerSpendError ? `<div class="error-box">\u26A0 ${escapeHtml(providerSpendError)}</div>` : ""}
+${providerSpendError && !isPermissionsIssue ? `<div class="error-box">\u26A0 ${escapeHtml(providerSpendError)}</div>` : ""}
 ${
   providerList.length > 0
     ? `
