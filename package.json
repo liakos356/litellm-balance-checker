@@ -2,7 +2,7 @@
   "name": "corellm",
   "displayName": "CoreLLM",
   "description": "Monitor LiteLLM API key balances, budgets, and usage directly from VS Code status bar",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publisher": "litellm-tools",
   "icon": "icon.png",
   "license": "MIT",
@@ -158,6 +158,23 @@
           "default": 24,
           "minimum": 1,
           "description": "How often (in hours) to check for updates on GitHub. Checks once on startup regardless."
+        },
+        "corellm.webviewTheme": {
+          "type": "string",
+          "default": "vscode",
+          "enum": [
+            "vscode",
+            "light",
+            "dark",
+            "hc"
+          ],
+          "enumDescriptions": [
+            "Follow VS Code theme",
+            "Light theme override",
+            "Dark theme override",
+            "High-contrast theme override"
+          ],
+          "description": "Theme override for CoreLLM webview panels. Choose 'vscode' to follow your VS Code theme."
         }
       }
     }
@@ -174,7 +191,7 @@
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.19.0",
     "@typescript-eslint/parser": "^6.19.0",
-    "@vscode/vsce": "^3.9.2",
+    "@vscode/vsce": "^2.22.0",
     "eslint": "^8.56.0",
     "typescript": "^5.3.0"
   }
