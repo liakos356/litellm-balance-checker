@@ -38,7 +38,7 @@ Or in VS Code: `Extensions` → `...` → `Install from VSIX...`
 ### From source
 
 ```bash
-git clone https://github.com/liakos356/litellm-balance-checker.git
+git clone https://github.com/core-innovation/litellm-balance-checker.git
 cd litellm-balance-checker
 npm install
 npm run compile

@@ -1211,7 +1211,7 @@ let updateTimer: NodeJS.Timeout | undefined;
 // ─── Update Checker ─────────────────────────────────────────────────────────
 
 const EXTENSION_ID = 'litellm-tools.corellm';
-const GITHUB_REPO = 'liakos356/litellm-balance-checker';
+const GITHUB_REPO = 'core-innovation/litellm-balance-checker';
 const CURRENT_VERSION = '0.3.0';
 const LAST_NOTIFIED_KEY = 'corellm.lastNotifiedVersion';
 
