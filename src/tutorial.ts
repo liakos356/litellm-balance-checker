@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -8,7 +10,7 @@ function escapeHtml(s: string): string {
 
 // ─── Tutorial / Getting Started Panel HTML ───────────────────────────────────
 
-const CURRENT_VERSION = '0.7.2';
+const CURRENT_VERSION = '0.7.3';
 
 export function buildTutorialHtml(activeTheme?: string): string {
   const theme = activeTheme || 'vscode';
@@ -669,67 +671,61 @@ interface ChangelogEntry {
   items: string[];
 }
 
-const CHANGELOG_DATA: ChangelogEntry[] = [
-  {
-    version: '0.6.0',
-    items: [
-      'New: Tutorial/Getting Started panel (\u2192 CoreLLM: Show Tutorial)',
-      'New: Changelog panel \u2014 auto-shown on version upgrade (\u2192 CoreLLM: Show Changelog)',
-      'New: Key Health panel (\u2192 CoreLLM: Show Key Health)',
-      'New: Model Info panel (\u2192 CoreLLM: Show Model Info)',
-      'New: Spend by Tags panel (\u2192 CoreLLM: Show Spend by Tags)',
-      'New: Teams panel (\u2192 CoreLLM: Show Teams)',
-      'New: Activity panel (\u2192 CoreLLM: Show Activity)',
-      'New: Global Spend panel (\u2192 CoreLLM: Show Global Spend)',
-      'Improved: Budget Overview \u2014 daily cost trend line chart with interactive date pickers',
-      'Improved: Budget Overview \u2014 cost efficiency metrics (cost/req, cost/token, tokens/req)',
-      'Improved: Spend Logs \u2014 cost-per-token column and summary stats',
-      'Improved: Key List \u2014 over-budget keys highlighted with red border and "OVER" badge',
-      'Improved: Status bar \u2014 clickable cycle through 4 display modes',
-      'Improved: Error handling \u2014 better messages for 403 management permission errors',
-    ],
-  },
-  {
-    version: '0.5.0',
-    items: [
-      'New: Budget Overview dashboard with daily spend chart, provider budgets, model donut',
-      'New: Spend Logs panel with search filtering',
-      'New: Key List panel with spend/budget bars and CSV export',
-      'New: Theme toggle \u2014 panels support vscode/light/dark/high-contrast themes',
-      'New: Budget warnings in status bar',
-      'New: Auto-refresh with toggle commands',
-      'New: Update checker with one-click install from GitHub',
-      'New: Login-based auth with JWT session key extraction',
-      'New: Display cycling \u2014 click status bar to cycle views',
-      'Improved: Rich status bar tooltip with key info, spend, models',
-      'Improved: Auth fallback to /key/list',
-    ],
-  },
-  {
-    version: '0.4.0',
-    items: [
-      'New: Status bar balance display',
-      'New: Auto-refresh (configurable interval)',
-      'New: Rich hover tooltip with spend, budget, usage %, user/team, models',
-      'New: Multiple auth modes (API key, admin key, login)',
-      'New: Budget warnings with color change',
-      'New: API endpoint support for /key/info, /spend/logs, /provider/budgets, /global/spend/report, /key/list, /v1/models',
-    ],
-  },
-  {
-    version: '0.3.0',
-    items: [
-      'Initial release with basic LiteLLM proxy connection and balance checking',
-    ],
-  },
+/** Fallback data used when CHANGELOG.md cannot be read from disk. */
+const FALLBACK_CHANGELOG: ChangelogEntry[] = [
+  { version: '0.7.2', items: ['Fixed: "Check for Updates" crash \u2014 replaced AbortSignal.timeout() with manual AbortController + setTimeout'] },
+  { version: '0.7.1', items: ['Fixed: apiKey and adminKey settings now masked as password fields in Settings UI', 'Docs: Version bump and push workflow now mandatory for every change/feature'] },
+  { version: '0.7.0', items: ['New: Tutorial/Getting Started panel', 'New: Changelog panel \u2014 auto-shown on version upgrade', 'New: Key Health panel', 'New: Model Info panel', 'New: Spend by Tags panel', 'New: Teams panel', 'New: Activity panel', 'New: Global Spend panel', 'Improved: Budget Overview \u2014 daily cost trend line chart with interactive date pickers', 'Improved: Budget Overview \u2014 cost efficiency metrics', 'Improved: Spend Logs \u2014 cost-per-token column and summary stats', 'Improved: Key List \u2014 over-budget keys highlighted with red border', 'Improved: Status bar \u2014 clickable cycle through 4 display modes', 'Improved: Error handling \u2014 better messages for 403 errors'] },
+  { version: '0.6.0', items: ['New: Budget Overview dashboard with daily spend chart, provider budgets, model donut', 'New: Spend Logs panel with search filtering', 'New: Key List panel with spend/budget bars and CSV export', 'New: Theme toggle \u2014 panels support vscode/light/dark/high-contrast themes', 'New: Budget warnings in status bar', 'New: Auto-refresh with toggle commands', 'New: Update checker with one-click install from GitHub', 'New: Login-based auth with JWT session key extraction', 'New: Display cycling \u2014 click status bar to cycle views', 'Improved: Rich status bar tooltip with key info, spend, models', 'Improved: Auth fallback to /key/list'] },
+  { version: '0.5.0', items: ['New: Status bar balance display', 'New: Auto-refresh (configurable interval)', 'New: Rich hover tooltip with spend, budget, usage %, user/team, models', 'New: Multiple auth modes (API key, admin key, login)', 'New: Budget warnings with color change', 'New: API endpoint support for /key/info, /spend/logs, /provider/budgets, /global/spend/report, /key/list, /v1/models'] },
+  { version: '0.4.0', items: ['New: Status bar balance display', 'New: Auto-refresh (configurable interval)', 'New: Rich hover tooltip with spend, budget, usage %, user/team, models', 'New: Multiple auth modes (API key, admin key, login)', 'New: Budget warnings with color change', 'New: API endpoint support for /key/info, /spend/logs, /provider/budgets, /global/spend/report, /key/list, /v1/models'] },
+  { version: '0.3.0', items: ['Initial release with basic LiteLLM proxy connection and balance checking'] },
 ];
+
+/**
+ * Parse CHANGELOG.md from disk into structured entries.
+ * Automatically stays in sync with the markdown file — no manual data updates needed.
+ */
+function parseChangelog(): ChangelogEntry[] {
+  try {
+    const changelogPath = path.join(__dirname, '..', 'CHANGELOG.md');
+    const content = fs.readFileSync(changelogPath, 'utf-8');
+    const entries: ChangelogEntry[] = [];
+    const lines = content.split('\n');
+    let currentVersion = '';
+    let currentItems: string[] = [];
+
+    for (const line of lines) {
+      const versionMatch = line.match(/^##\s+(\d+\.\d+\.\d+)/);
+      if (versionMatch) {
+        if (currentVersion && currentItems.length > 0) {
+          entries.push({ version: currentVersion, items: currentItems });
+        }
+        currentVersion = versionMatch[1];
+        currentItems = [];
+      } else if (currentVersion && line.trim().startsWith('- ')) {
+        let item = line.trim().slice(2).trim();
+        // Strip markdown bold (**word:** → word:) so icon detection works
+        item = item.replace(/^\*\*([^*]+)\*\*:/, '$1:');
+        if (item) currentItems.push(item);
+      }
+    }
+    if (currentVersion && currentItems.length > 0) {
+      entries.push({ version: currentVersion, items: currentItems });
+    }
+    return entries.length > 0 ? entries : FALLBACK_CHANGELOG;
+  } catch {
+    return FALLBACK_CHANGELOG;
+  }
+}
 
 export function buildChangelogHtml(activeTheme?: string): string {
   const theme = activeTheme || 'vscode';
   const themeOverride = buildThemeOverrides(theme);
-  const currentVer = CHANGELOG_DATA[0].version;
+  const data = parseChangelog();
+  const currentVer = data[0].version;
 
-  const versionCards = CHANGELOG_DATA.map((entry, idx) => {
+  const versionCards = data.map((entry, idx) => {
     const isLatest = idx === 0;
     const badges = entry.items.map(item => {
       const icon = item.startsWith('New:') ? '\u2728' : item.startsWith('Improved:') ? '\u{1F527}' : item.startsWith('Fixed:') ? '\u2705' : '\u{1F4A1}';

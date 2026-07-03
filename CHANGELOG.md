@@ -2,6 +2,10 @@
 
 All notable changes to the CoreLLM VS Code extension.
 
+## 0.7.3
+
+- **Improved:** Changelog "What's New" panel now parses `CHANGELOG.md` at runtime — no more manually keeping hardcoded data in sync, future entries appear automatically
+
 ## 0.7.2
 
 - **Fixed:** "Check for Updates" crash — replaced `AbortSignal.timeout()` (unavailable in VS Code's bundled Node) with manual `AbortController` + `setTimeout`
