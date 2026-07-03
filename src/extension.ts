@@ -3515,22 +3515,32 @@ let updateTimer: NodeJS.Timeout | undefined;
 
 const EXTENSION_ID = "litellm-tools.corellm";
 const GITHUB_REPO = "core-innovation/litellm-balance-checker";
-const CURRENT_VERSION = "0.7.1";
+const CURRENT_VERSION = "0.7.2";
 const LAST_NOTIFIED_KEY = "corellm.lastNotifiedVersion";
 const LAST_SEEN_VERSION_KEY = "corellm.lastSeenVersion";
+
+/** Create a fetch signal that aborts after ms milliseconds.
+ *  Avoids AbortSignal.timeout() which may not be available in VS Code's bundled Node. */
+function createTimeoutSignal(ms: number): { signal: AbortSignal; clear: () => void } {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return { signal: controller.signal, clear: () => clearTimeout(timer) };
+}
 
 /** Try to fetch the latest tag from tags API (fallback when no releases exist). */
 async function fetchLatestTagFromTags(): Promise<{
   tag: string;
   vsixUrl: string;
 } | null> {
+  const { signal, clear } = createTimeoutSignal(8000);
   const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/tags`, {
     headers: {
       Accept: "application/vnd.github.v3+json",
       "User-Agent": "corellm-vscode",
     },
-    signal: AbortSignal.timeout(8000),
+    signal,
   });
+  clear();
   if (!res.ok) return null;
   const tags = (await res.json()) as Array<{ name: string }>;
   if (!tags || tags.length === 0) return null;
@@ -3555,6 +3565,7 @@ async function checkForUpdates(
 ): Promise<void> {
   try {
     // Try releases/latest first
+    const { signal, clear } = createTimeoutSignal(8000);
     const releaseRes = await fetch(
       `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`,
       {
@@ -3562,9 +3573,10 @@ async function checkForUpdates(
           Accept: "application/vnd.github.v3+json",
           "User-Agent": "corellm-vscode",
         },
-        signal: AbortSignal.timeout(8000),
+        signal,
       },
     );
+    clear();
 
     let latestTag: string | null = null;
     let vsixDownloadUrl: string | null = null;

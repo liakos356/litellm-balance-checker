@@ -2,6 +2,10 @@
 
 All notable changes to the CoreLLM VS Code extension.
 
+## 0.7.2
+
+- **Fixed:** "Check for Updates" crash — replaced `AbortSignal.timeout()` (unavailable in VS Code's bundled Node) with manual `AbortController` + `setTimeout`
+
 ## 0.7.1
 
 - **Fixed:** `apiKey` and `adminKey` settings now masked as password fields in Settings UI (eye-toggle supported)
