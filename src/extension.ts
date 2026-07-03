@@ -3634,7 +3634,7 @@ let updateTimer: NodeJS.Timeout | undefined;
 
 const EXTENSION_ID = "litellm-tools.corellm";
 const GITHUB_REPO = "core-innovation/litellm-balance-checker";
-const CURRENT_VERSION = "0.8.1";
+const CURRENT_VERSION = "0.8.2";
 const LAST_NOTIFIED_KEY = "corellm.lastNotifiedVersion";
 const LAST_SEEN_VERSION_KEY = "corellm.lastSeenVersion";
 
@@ -3743,10 +3743,11 @@ async function checkForUpdates(
       }
     }
 
-    // Fall back to tags if no release found (no releases exist or 404)
-    if (!latestTag) {
-      const tagInfo = await fetchLatestTagFromTags();
-      if (tagInfo) {
+    // Always check tags too — git tags may be newer than the latest GitHub Release
+    const tagInfo = await fetchLatestTagFromTags();
+    if (tagInfo) {
+      // If no release was found, or the latest tag is newer than the release, use the tag
+      if (!latestTag || compareVersions(tagInfo.tag, latestTag) > 0) {
         latestTag = tagInfo.tag;
         releaseUrl = tagInfo.releaseUrl;
         // No direct VSIX download URL from tags — user will be directed to releases page

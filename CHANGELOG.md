@@ -2,6 +2,10 @@
 
 All notable changes to the CoreLLM VS Code extension.
 
+## 0.8.2
+
+- **Fixed:** Update checker only checked GitHub Releases (v0.8.0), missing newer git tags (v0.8.1). Now always checks tags too and uses whichever is newer.
+
 ## 0.8.1
 
 - **Fixed:** Dashboard total spend now correctly shows key spend instead of 0 when global report is unavailable for non-admin users
