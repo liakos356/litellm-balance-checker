@@ -8,7 +8,7 @@ function escapeHtml(s: string): string {
 
 // ─── Tutorial / Getting Started Panel HTML ───────────────────────────────────
 
-const CURRENT_VERSION = '0.6.0';
+const CURRENT_VERSION = '0.7.0';
 
 export function buildTutorialHtml(activeTheme?: string): string {
   const theme = activeTheme || 'vscode';

@@ -2,7 +2,7 @@
   "name": "corellm",
   "displayName": "CoreLLM",
   "description": "Monitor LiteLLM API key balances, budgets, and usage directly from VS Code status bar",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "publisher": "litellm-tools",
   "icon": "icon.png",
   "license": "MIT",
@@ -22,6 +22,23 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "views": {
+      "corellm": [
+        {
+          "id": "corellm.treeView",
+          "name": "CoreLLM Monitor"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "corellm",
+          "title": "CoreLLM",
+          "icon": "$(graph)"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "corellm.refresh",
@@ -102,6 +119,22 @@
       {
         "command": "corellm.cycleDisplay",
         "title": "CoreLLM: Cycle Status Bar Display"
+      },
+      {
+        "command": "corellm.showHealthDashboard",
+        "title": "CoreLLM: Show Health Dashboard"
+      },
+      {
+        "command": "corellm.showProviderSpend",
+        "title": "CoreLLM: Show Provider Spend"
+      },
+      {
+        "command": "corellm.showUserManager",
+        "title": "CoreLLM: Show User Manager"
+      },
+      {
+        "command": "corellm.showUnifiedDashboard",
+        "title": "CoreLLM: Show Dashboard"
       }
     ],
     "configuration": {
@@ -284,6 +317,92 @@
             "Show max budget"
           ],
           "description": "Default status bar display mode"
+        },
+        "corellm.healthCheckInterval": {
+          "type": "number",
+          "default": 300,
+          "minimum": 30,
+          "description": "Health check polling interval in seconds (minimum 30). Used for the Health Dashboard."
+        },
+        "corellm.enableHealthMonitoring": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable continuous proxy health monitoring. Shows alerts when endpoints go unhealthy."
+        },
+        "corellm.healthAlertOnUnhealthy": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a VS Code notification when any model endpoint becomes unhealthy."
+        },
+        "corellm.enableSpendForecast": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show projected 30-day spend forecast in the Dashboard based on recent usage patterns."
+        },
+        "corellm.forecastDays": {
+          "type": "number",
+          "default": 7,
+          "minimum": 1,
+          "maximum": 90,
+          "description": "Number of recent days to use for spend forecasting."
+        },
+        "corellm.enableBudgetAlerts": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show VS Code notifications when budget thresholds are crossed."
+        },
+        "corellm.budgetAlertThreshold": {
+          "type": "number",
+          "default": 80,
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Budget usage percentage threshold for alerts."
+        },
+        "corellm.enableDailySpendAlert": {
+          "type": "boolean",
+          "default": false,
+          "description": "Alert when daily spend exceeds a configured threshold."
+        },
+        "corellm.dailySpendAlertThreshold": {
+          "type": "number",
+          "default": 10,
+          "minimum": 0,
+          "description": "Daily spend threshold in USD. Alert when daily spend exceeds this amount."
+        },
+        "corellm.enableProviderBreakdown": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show per-provider spend breakdowns (OpenAI, Anthropic, etc.) in panels."
+        },
+        "corellm.compactStatusBar": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use a compact status bar display showing only the spend amount."
+        },
+        "corellm.dateFormat": {
+          "type": "string",
+          "default": "relative",
+          "enum": [
+            "relative",
+            "absolute",
+            "iso"
+          ],
+          "enumDescriptions": [
+            "Relative time (e.g., 2m ago, 3h ago)",
+            "Absolute date/time",
+            "ISO 8601 format"
+          ],
+          "description": "Date/time display format in webview panels."
+        },
+        "corellm.enableTreeView": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show CoreLLM in the VS Code sidebar as a tree view for quick access."
+        },
+        "corellm.treeViewAutoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-refresh the sidebar tree view data."
         }
       }
     }

@@ -2,1247 +2,66 @@ import * as vscode from "vscode";
 import * as os from "os";
 import * as fs from "fs";
 import { buildTutorialHtml, buildChangelogHtml } from "./tutorial";
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface KeyInfoResponse {
-  key?: string;
-  key_alias?: string;
-  key_name?: string;
-  spend?: number;
-  max_budget?: number | null;
-  budget_duration?: string | null;
-  budget_reset_at?: string | null;
-  models?: string[];
-  user_id?: string;
-  team_id?: string;
-  token?: string;
-  [key: string]: unknown;
-}
-
-interface SpendLogEntry {
-  request_id?: string;
-  api_key?: string;
-  model?: string;
-  spend?: number;
-  total_tokens?: number;
-  prompt_tokens?: number;
-  completion_tokens?: number;
-  startTime?: string;
-  endTime?: string;
-  call_type?: string;
-  [key: string]: unknown;
-}
-
-interface SpendLogsResponse {
-  logs?: SpendLogEntry[];
-  total?: number;
-  page?: number;
-  page_size?: number;
-  [key: string]: unknown;
-}
-
-interface ProviderBudgetEntry {
-  budget_limit?: number | null;
-  time_period?: string | null;
-  spend?: number;
-  budget_reset_at?: string | null;
-  [key: string]: unknown;
-}
-
-interface ProviderBudgetResponse {
-  providers?: Record<string, ProviderBudgetEntry>;
-  [key: string]: unknown;
-}
-
-interface GlobalSpendReportEntry {
-  "group-by-day"?: string;
-  teams?: Array<{
-    team_name?: string;
-    spend?: number;
-    keys?: Array<{
-      key?: string;
-      usage?: Record<
-        string,
-        {
-          cost?: number;
-          input_tokens?: number;
-          output_tokens?: number;
-          requests?: number;
-        }
-
-      >;
-    }>;
-  }>;
-  [key: string]: unknown;
-}
-
-interface KeyListItem {
-  key?: string;
-  key_alias?: string;
-  key_name?: string;
-  spend?: number;
-  max_budget?: number | null;
-  user_id?: string;
-  team_id?: string;
-  models?: string[];
-  [key: string]: unknown;
-}
-
-interface KeyListResponse {
-  keys?: KeyListItem[];
-  total_count?: number;
-  [key: string]: unknown;
-}
-
-interface GlobalSpendEntry {
-  api_key?: string;
-  key_alias?: string;
-  key_name?: string;
-  total_spend?: number;
-  total_tokens?: number;
-  count?: number;
-  [key: string]: unknown;
-}
-
-interface GlobalSpendKeysResponse {
-  keys?: GlobalSpendEntry[];
-  total_spend?: number;
-  [key: string]: unknown;
-}
-
-interface GlobalSpendModelEntry {
-  model?: string;
-  total_spend?: number;
-  total_tokens?: number;
-  input_tokens?: number;
-  output_tokens?: number;
-  count?: number;
-  [key: string]: unknown;
-}
-
-interface GlobalSpendModelsResponse {
-  models?: GlobalSpendModelEntry[];
-  total_spend?: number;
-  [key: string]: unknown;
-}
-
-interface GlobalSpendTeamEntry {
-  team_name?: string;
-  team_id?: string;
-  total_spend?: number;
-  total_tokens?: number;
-  count?: number;
-  [key: string]: unknown;
-}
-
-interface GlobalSpendTeamsResponse {
-  teams?: GlobalSpendTeamEntry[];
-  total_spend?: number;
-  [key: string]: unknown;
-}
-
-interface TeamInfoResponse {
-  team_id?: string;
-  team_alias?: string;
-  team_name?: string;
-  spend?: number;
-  max_budget?: number | null;
-  budget_duration?: string | null;
-  models?: string[];
-  members_with_roles?: Array<{ user_id?: string; role?: string }>;
-  metadata?: Record<string, unknown>;
-  blocked?: boolean;
-  [key: string]: unknown;
-}
-
-interface TeamListResponse {
-  teams?: TeamInfoResponse[];
-  total_count?: number;
-  [key: string]: unknown;
-}
-
-interface ModelInfoEntry {
-  id?: string;
-  model_name?: string;
-  model_info?: {
-    input_cost_per_token?: number;
-    output_cost_per_token?: number;
-    max_tokens?: number;
-    mode?: string;
-    litellm_provider?: string;
-    supports_function_calling?: boolean;
-    supports_vision?: boolean;
-    [key: string]: unknown;
-  };
-  [key: string]: unknown;
-}
-
-interface ModelInfoResponse {
-  data?: ModelInfoEntry[];
-  [key: string]: unknown;
-}
-
-interface SpendTagEntry {
-  tag_name?: string;
-  total_spend?: number;
-  total_tokens?: number;
-  count?: number;
-  [key: string]: unknown;
-}
-
-interface SpendTagsResponse {
-  tags?: SpendTagEntry[];
-  total_spend?: number;
-  [key: string]: unknown;
-}
-
-interface ActivityEntry {
-  day?: string;
-  hour?: string;
-  api_key?: string;
-  total_spend?: number;
-  total_tokens?: number;
-  count?: number;
-  [key: string]: unknown;
-}
-
-interface ActivityResponse {
-  data?: ActivityEntry[];
-  total_spend?: number;
-  [key: string]: unknown;
-}
-
-interface KeyHealthResponse {
-  key?: string;
-  key_alias?: string;
-  key_name?: string;
-  health?: string;
-  last_accessed?: string;
-  spend?: number;
-  max_budget?: number | null;
-  models?: string[];
-  [key: string]: unknown;
-}
-
-interface HealthEndpoint {
-  model?: string;
-  api_base?: string;
-  [key: string]: unknown;
-}
-
-interface HealthResponse {
-  healthy_endpoints?: HealthEndpoint[];
-  unhealthy_endpoints?: HealthEndpoint[];
-  healthy_count?: number;
-  unhealthy_count?: number;
-  [key: string]: unknown;
-}
-
-interface ReadinessResponse {
-  status?: string;
-  db?: string;
-  cache?: string | null;
-  litellm_version?: string;
-  success_callbacks?: string[];
-  last_updated?: string;
-  [key: string]: unknown;
-}
-
-interface UserInfoResponse {
-  user_id?: string;
-  user_email?: string;
-  user_alias?: string;
-  spend?: number;
-  max_budget?: number | null;
-  models?: string[];
-  teams?: string[];
-  organization_id?: string;
-  [key: string]: unknown;
-}
-
-interface UserListResponse {
-  users?: UserInfoResponse[];
-  total?: number;
-  total_count?: number;
-  [key: string]: unknown;
-}
-
-interface GuardrailInfo {
-  guardrail_name?: string;
-  litellm_params?: {
-    guardrail?: string;
-    mode?: string;
-    [key: string]: unknown;
-  };
-  guardrail_info?: {
-    guardrail_name?: string;
-    [key: string]: unknown;
-  };
-  default_on?: boolean;
-  [key: string]: unknown;
-}
-
-interface GuardrailsListResponse {
-  guardrails?: GuardrailInfo[];
-  [key: string]: unknown;
-}
-
-interface ConfigYamlResponse {
-  config?: Record<string, unknown>;
-  [key: string]: unknown;
-}
-
-interface TokenCountResponse {
-  total_tokens?: number;
-  request_tokens?: number;
-  response_tokens?: number;
-  [key: string]: unknown;
-}
-
-interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-  ttl: number;
-}
-
-interface StatusBarDisplay {
-  text: string;
-  tooltip: string;
-  color?: string;
-}
-
-// ─── Configuration ───────────────────────────────────────────────────────────
-
-type ReportDuration = "1h" | "24h" | "7d" | "30d" | "custom";
-
-const DURATION_LABELS: Record<ReportDuration, string> = {
-  "1h": "Last hour",
-  "24h": "Last 24 hours",
-  "7d": "Last 7 days",
-  "30d": "Last 30 days",
-  custom: "Custom range",
-};
-
-const DURATION_MS: Record<ReportDuration, number | null> = {
-  "1h": 3600000,
-  "24h": 86400000,
-  "7d": 604800000,
-  "30d": 2592000000,
-  custom: null,
-};
-
-interface ExtensionConfig {
-  apiKey: string;
-  adminKey: string;
-  username: string;
-  password: string;
-  endpoint: string;
-  refreshInterval: number;
-  showKeyAlias: boolean;
-  showSpendLogs: boolean;
-  budgetWarningThreshold: number;
-  keyToQuery: string;
-  reportDuration: ReportDuration;
-  reportCustomStart: string;
-  reportCustomEnd: string;
-  updateCheckInterval: number;
-  webviewTheme: string;
-  showTeamSpend: boolean;
-  showGlobalSpend: boolean;
-  showModelSpend: boolean;
-  cacheResults: boolean;
-  spendAlertThreshold: number;
-  enableActivityMonitoring: boolean;
-  teamFilter: string;
-  defaultPanelTab: string;
-  statusBarDisplayMode: string;
-  healthCheckInterval: number;
-  enableHealthMonitoring: boolean;
-  healthAlertOnUnhealthy: boolean;
-  enableSpendForecast: boolean;
-  forecastDays: number;
-  enableBudgetAlerts: boolean;
-  budgetAlertThreshold: number;
-  enableDailySpendAlert: boolean;
-  dailySpendAlertThreshold: number;
-}
-
-function getConfig(): ExtensionConfig {
-  const cfg = vscode.workspace.getConfiguration("corellm");
-  return {
-    apiKey: cfg.get<string>("apiKey", ""),
-    adminKey: cfg.get<string>("adminKey", ""),
-    username: cfg.get<string>("username", ""),
-    password: cfg.get<string>("password", ""),
-    endpoint: cfg
-      .get<string>("endpoint", "http://core.llm")
-      .replace(/\/+$/, ""),
-    refreshInterval: cfg.get<number>("refreshInterval", 60),
-    showKeyAlias: cfg.get<boolean>("showKeyAlias", true),
-    showSpendLogs: cfg.get<boolean>("showSpendLogs", false),
-    budgetWarningThreshold: cfg.get<number>("budgetWarningThreshold", 20),
-    keyToQuery: cfg.get<string>("keyToQuery", ""),
-    reportDuration: cfg.get<ReportDuration>("reportDuration", "7d"),
-    reportCustomStart: cfg.get<string>("reportCustomStart", ""),
-    reportCustomEnd: cfg.get<string>("reportCustomEnd", ""),
-    updateCheckInterval: cfg.get<number>("updateCheckInterval", 24),
-    webviewTheme: cfg.get<string>("webviewTheme", "vscode"),
-    showTeamSpend: cfg.get<boolean>("showTeamSpend", false),
-    showGlobalSpend: cfg.get<boolean>("showGlobalSpend", false),
-    showModelSpend: cfg.get<boolean>("showModelSpend", false),
-    cacheResults: cfg.get<boolean>("cacheResults", true),
-    spendAlertThreshold: cfg.get<number>("spendAlertThreshold", 0),
-    enableActivityMonitoring: cfg.get<boolean>(
-      "enableActivityMonitoring",
-      false,
-    ),
-    teamFilter: cfg.get<string>("teamFilter", ""),
-    defaultPanelTab: cfg.get<string>("defaultPanelTab", "overview"),
-    statusBarDisplayMode: cfg.get<string>("statusBarDisplayMode", "cycle"),
-    healthCheckInterval: cfg.get<number>("healthCheckInterval", 300),
-    enableHealthMonitoring: cfg.get<boolean>("enableHealthMonitoring", false),
-    healthAlertOnUnhealthy: cfg.get<boolean>("healthAlertOnUnhealthy", true),
-    enableSpendForecast: cfg.get<boolean>("enableSpendForecast", true),
-    forecastDays: cfg.get<number>("forecastDays", 7),
-    enableBudgetAlerts: cfg.get<boolean>("enableBudgetAlerts", true),
-    budgetAlertThreshold: cfg.get<number>("budgetAlertThreshold", 80),
-    enableDailySpendAlert: cfg.get<boolean>("enableDailySpendAlert", false),
-    dailySpendAlertThreshold: cfg.get<number>("dailySpendAlertThreshold", 10),
-  };
-}
-
-function getDateRange(
-  duration: ReportDuration,
-  customStart: string,
-  customEnd: string,
-): { start: string; end: string } {
-  const end = new Date();
-  if (duration === "custom") {
-    return {
-      start:
-        customStart ||
-        new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10),
-      end: customEnd || end.toISOString().slice(0, 10),
-    };
-  }
-
-  const ms = DURATION_MS[duration];
-  if (ms) {
-    return {
-      start: new Date(Date.now() - ms).toISOString().slice(0, 10),
-      end: end.toISOString().slice(0, 10),
-    };
-  }
-
-  return {
-    start: new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10),
-  };
-}
-
-// ─── API Client ──────────────────────────────────────────────────────────────
-
-class CoreLLMApiClient {
-  private config: ExtensionConfig;
-  private cachedJwtKey: string | undefined;
-  private loginPromise: Promise<string | null> | undefined;
-  private cache: Map<string, CacheEntry<unknown>> = new Map();
-
-  constructor(config: ExtensionConfig) {
-    this.config = config;
-  }
-
-  /** Get or set cached data with a configurable TTL (default 30s). */
-  private getCache<T>(key: string): T | undefined {
-    const entry = this.cache.get(key);
-    if (!entry) return undefined;
-    if (Date.now() - entry.timestamp > entry.ttl) {
-      this.cache.delete(key);
-      return undefined;
-    }
-
-    return entry.data as T;
-  }
-
-  private setCache<T>(key: string, data: T, ttl = 30000): void {
-    if (!this.config.cacheResults) return;
-    this.cache.set(key, { data, timestamp: Date.now(), ttl });
-  }
-
-  /**
-   * Login with username/password and extract the embedded API key from JWT.
-   * Falls back to apiKey/adminKey if login fails or not configured.
-   */
-  private async loginAndGetKey(): Promise<string | null> {
-    if (this.cachedJwtKey) return this.cachedJwtKey;
-    if (!this.config.username || !this.config.password) return null;
-
-    if (!this.loginPromise) {
-      this.loginPromise = (async () => {
-        try {
-          const url = `${this.config.endpoint}/login`;
-          const res = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: `username=${encodeURIComponent(this.config.username)}&password=${encodeURIComponent(this.config.password)}`,
-            redirect: "manual",
-          });
-          const setCookie = res.headers.get("set-cookie") || "";
-          const jwtMatch = setCookie.match(/token=([^;]+)/);
-          if (!jwtMatch) throw new Error("No token cookie returned");
-          const jwt = jwtMatch[1];
-
-          // Decode JWT payload to extract embedded sk- key
-          const payloadB64 = jwt
-            .split(".")[1]
-            .replace(/-/g, "+")
-            .replace(/_/g, "/");
-          const jsonStr = atob(payloadB64);
-          const payload = JSON.parse(jsonStr);
-          const embeddedKey: string = payload.key || "";
-          if (embeddedKey.startsWith("sk-")) {
-            this.cachedJwtKey = embeddedKey;
-            return embeddedKey;
-          }
-
-          throw new Error("No valid sk- key in JWT");
-        } catch (err) {
-          this.loginPromise = undefined; // allow retry next time
-          throw err;
-        }
-      })();
-    }
-
-    return this.loginPromise;
-  }
-
-  private async resolveAuthKey(): Promise<string | null> {
-    // Priority: 1) login-derived key  2) adminKey  3) apiKey
-    if (this.config.username) {
-      try {
-        const key = await this.loginAndGetKey();
-        if (key) return key;
-      } catch {
-        /* fall through */
-      }
-    }
-
-    return this.config.adminKey || this.config.apiKey || null;
-  }
-
-  private async getHeaders(): Promise<Record<string, string>> {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    const authKey = await this.resolveAuthKey();
-    if (authKey) {
-      headers["Authorization"] = `Bearer ${authKey}`;
-      headers["x-litellm-api-key"] = authKey;
-    }
-
-    return headers;
-  }
-
-  private async apiGet<T>(
-    path: string,
-    params?: Record<string, string>,
-  ): Promise<T> {
-    const url = new URL(`${this.config.endpoint}${path}`);
-    if (params) {
-      for (const [k, v] of Object.entries(params)) {
-        if (v) url.searchParams.set(k, v);
-      }
-    }
-
-    const res = await fetch(url.toString(), {
-      method: "GET",
-      headers: await this.getHeaders(),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      const snippet = text.slice(0, 300);
-      // Detect 403 "key not allowed" — common for llm_api type keys
-      if (
-        res.status === 403 &&
-        snippet.includes("not allowed to call this route")
-      ) {
-        throw new Error(
-          `Your API key lacks management permissions (403 on ${path}). ` +
-            `Use an admin/proxy master key in the "adminKey" setting.`,
-        );
-      }
-
-      throw new Error(`API ${res.status} on ${path}: ${snippet}`);
-    }
-
-    return res.json() as Promise<T>;
-  }
-
-  /** GET /key/info */
-  async fetchKeyInfo(): Promise<KeyInfoResponse> {
-    return this.apiGet<KeyInfoResponse>(
-      "/key/info",
-      this.config.keyToQuery ? { key: this.config.keyToQuery } : undefined,
-    );
-  }
-
-  /** GET /spend/logs */
-  async fetchSpendLogs(limit = 5): Promise<SpendLogEntry[]> {
-    const params: Record<string, string> = { page_size: String(limit) };
-    if (this.config.keyToQuery) params.api_key = this.config.keyToQuery;
-    const data = await this.apiGet<SpendLogEntry[] | SpendLogsResponse>(
-      "/spend/logs",
-      params,
-    );
-    if (Array.isArray(data)) return data;
-    if (data && Array.isArray((data as SpendLogsResponse).logs))
-      return (data as SpendLogsResponse).logs!;
-    return [];
-  }
-
-  /** GET /provider/budgets — per-provider spend & budget limits */
-  async fetchProviderBudgets(): Promise<ProviderBudgetResponse> {
-    return this.apiGet<ProviderBudgetResponse>("/provider/budgets");
-  }
-
-  /** GET /global/spend/report — daily spend grouped by team */
-  async fetchGlobalSpendReport(
-    startDate: string,
-    endDate: string,
-  ): Promise<GlobalSpendReportEntry[]> {
-    return this.apiGet<GlobalSpendReportEntry[]>("/global/spend/report", {
-      start_date: startDate,
-      end_date: endDate,
-    });
-  }
-
-  /** GET /key/list — paginated list of keys with spend/budget */
-  async fetchKeyList(page = 1, size = 50): Promise<KeyListResponse> {
-    return this.apiGet<KeyListResponse>("/key/list", {
-      page: String(page),
-      size: String(size),
-      return_full_object: "true",
-    });
-  }
-
-  /** GET /v1/models — list accessible models */
-  async fetchModels(): Promise<string[]> {
-    try {
-      const data = await this.apiGet<{ data?: Array<{ id?: string }> }>(
-        "/v1/models",
-      );
-      return data?.data?.map((m) => m.id ?? "").filter(Boolean) ?? [];
-    } catch {
-      return [];
-    }
-  }
-
-  /** GET /user/daily/activity — daily spend/usage breakdown */
-  async fetchUserDailyActivity(userId?: string): Promise<unknown> {
-    return this.apiGet(
-      "/user/daily/activity",
-      userId ? { user_id: userId } : undefined,
-    );
-  }
-
-  /** GET /global/spend/keys — spend breakdown by API key */
-  async fetchGlobalSpendKeys(
-    startDate?: string,
-    endDate?: string,
-  ): Promise<GlobalSpendKeysResponse> {
-    const cacheKey = `globalSpendKeys_${startDate}_${endDate}`;
-    const cached = this.getCache<GlobalSpendKeysResponse>(cacheKey);
-    if (cached) return cached;
-    const params: Record<string, string> = {};
-    if (startDate) params.start_date = startDate;
-    if (endDate) params.end_date = endDate;
-    const data = await this.apiGet<GlobalSpendKeysResponse>(
-      "/global/spend/keys",
-      params,
-    );
-    this.setCache(cacheKey, data, 60000);
-    return data;
-  }
-
-  /** GET /global/spend/models — spend breakdown by model */
-  async fetchGlobalSpendModels(
-    startDate?: string,
-    endDate?: string,
-  ): Promise<GlobalSpendModelsResponse> {
-    const cacheKey = `globalSpendModels_${startDate}_${endDate}`;
-    const cached = this.getCache<GlobalSpendModelsResponse>(cacheKey);
-    if (cached) return cached;
-    const params: Record<string, string> = {};
-    if (startDate) params.start_date = startDate;
-    if (endDate) params.end_date = endDate;
-    const data = await this.apiGet<GlobalSpendModelsResponse>(
-      "/global/spend/models",
-      params,
-    );
-    this.setCache(cacheKey, data, 60000);
-    return data;
-  }
-
-  /** GET /global/spend/teams — spend breakdown by team */
-  async fetchGlobalSpendTeams(
-    startDate?: string,
-    endDate?: string,
-  ): Promise<GlobalSpendTeamsResponse> {
-    const cacheKey = `globalSpendTeams_${startDate}_${endDate}`;
-    const cached = this.getCache<GlobalSpendTeamsResponse>(cacheKey);
-    if (cached) return cached;
-    const params: Record<string, string> = {};
-    if (startDate) params.start_date = startDate;
-    if (endDate) params.end_date = endDate;
-    if (this.config.teamFilter) params.team_id = this.config.teamFilter;
-    const data = await this.apiGet<GlobalSpendTeamsResponse>(
-      "/global/spend/teams",
-      params,
-    );
-    this.setCache(cacheKey, data, 60000);
-    return data;
-  }
-
-  /** GET /team/list — list all teams */
-  async fetchTeamList(): Promise<TeamListResponse> {
-    const cacheKey = "teamList";
-    const cached = this.getCache<TeamListResponse>(cacheKey);
-    if (cached) return cached;
-    const data = await this.apiGet<TeamListResponse>("/team/list");
-    this.setCache(cacheKey, data, 120000);
-    return data;
-  }
-
-  /** GET /team/info — detailed team info */
-  async fetchTeamInfo(teamId: string): Promise<TeamInfoResponse> {
-    return this.apiGet<TeamInfoResponse>("/team/info", { team_id: teamId });
-  }
-
-  /** GET /model/info — detailed model info with pricing */
-  async fetchModelInfo(): Promise<ModelInfoResponse> {
-    const cacheKey = "modelInfo";
-    const cached = this.getCache<ModelInfoResponse>(cacheKey);
-    if (cached) return cached;
-    const data = await this.apiGet<ModelInfoResponse>("/model/info");
-    this.setCache(cacheKey, data, 300000);
-    return data;
-  }
-
-  /** GET /spend/tags — spend breakdown by tag */
-  async fetchSpendTags(
-    startDate?: string,
-    endDate?: string,
-  ): Promise<SpendTagsResponse> {
-    const cacheKey = `spendTags_${startDate}_${endDate}`;
-    const cached = this.getCache<SpendTagsResponse>(cacheKey);
-    if (cached) return cached;
-    const params: Record<string, string> = {};
-    if (startDate) params.start_date = startDate;
-    if (endDate) params.end_date = endDate;
-    const data = await this.apiGet<SpendTagsResponse>("/spend/tags", params);
-    this.setCache(cacheKey, data, 60000);
-    return data;
-  }
-
-  /** GET /global/activity — global proxy activity */
-  async fetchGlobalActivity(
-    startDate?: string,
-    endDate?: string,
-  ): Promise<ActivityResponse> {
-    const cacheKey = `globalActivity_${startDate}_${endDate}`;
-    const cached = this.getCache<ActivityResponse>(cacheKey);
-    if (cached) return cached;
-    const params: Record<string, string> = {};
-    if (startDate) params.start_date = startDate;
-    if (endDate) params.end_date = endDate;
-    const data = await this.apiGet<ActivityResponse>(
-      "/global/activity",
-      params,
-    );
-    this.setCache(cacheKey, data, 60000);
-    return data;
-  }
-
-  /** GET /key/health — key/logging health status */
-  async fetchKeyHealth(): Promise<KeyHealthResponse> {
-    const cacheKey = "keyHealth";
-    const cached = this.getCache<KeyHealthResponse>(cacheKey);
-    if (cached) return cached;
-    const data = await this.apiGet<KeyHealthResponse>("/key/health");
-    this.setCache(cacheKey, data, 60000);
-    return data;
-  }
-
-  /** GET /health — model health (healthy/unhealthy endpoints) */
-  async fetchHealth(): Promise<HealthResponse> {
-    const cacheKey = "health";
-    const cached = this.getCache<HealthResponse>(cacheKey);
-    if (cached) return cached;
-    const data = await this.apiGet<HealthResponse>("/health");
-    this.setCache(cacheKey, data, 30000);
-    return data;
-  }
-
-  /** GET /health/readiness — proxy readiness check */
-  async fetchReadiness(): Promise<ReadinessResponse> {
-    const cacheKey = "readiness";
-    const cached = this.getCache<ReadinessResponse>(cacheKey);
-    if (cached) return cached;
-    const data = await this.apiGet<ReadinessResponse>("/health/readiness");
-    this.setCache(cacheKey, data, 15000);
-    return data;
-  }
-
-  /** GET /health/liveliness — simple alive check */
-  async fetchLiveliness(): Promise<string> {
-    try {
-      const url = new URL(`${this.config.endpoint}/health/liveliness`);
-      const res = await fetch(url.toString(), {
-        method: "GET",
-        headers: await this.getHeaders(),
-      });
-      if (!res.ok) throw new Error(`API ${res.status} on /health/liveliness`);
-      return await res.text();
-    } catch {
-      return "";
-    }
-  }
-
-  /** GET /user/info — current user info */
-  async fetchUserInfo(userId?: string): Promise<UserInfoResponse> {
-    return this.apiGet<UserInfoResponse>(
-      "/user/info",
-      userId ? { user_id: userId } : undefined,
-    );
-  }
-
-  /** GET /user/list — list all users */
-  async fetchUserList(): Promise<UserListResponse> {
-    const cacheKey = "userList";
-    const cached = this.getCache<UserListResponse>(cacheKey);
-    if (cached) return cached;
-    const data = await this.apiGet<UserListResponse>("/user/list");
-    this.setCache(cacheKey, data, 60000);
-    return data;
-  }
-
-  /** GET /guardrails/list — list configured guardrails */
-  async fetchGuardrails(): Promise<GuardrailsListResponse> {
-    const cacheKey = "guardrails";
-    const cached = this.getCache<GuardrailsListResponse>(cacheKey);
-    if (cached) return cached;
-    const data = await this.apiGet<GuardrailsListResponse>("/guardrails/list");
-    this.setCache(cacheKey, data, 120000);
-    return data;
-  }
-
-  /** GET /config/yaml — fetch proxy config.yaml */
-  async fetchConfigYaml(): Promise<ConfigYamlResponse> {
-    return this.apiGet<ConfigYamlResponse>("/config/yaml");
-  }
-
-  /** POST /utils/token_counter — count tokens for given messages */
-  async countTokens(
-    model: string,
-    messages: Array<{ role: string; content: string }>,
-  ): Promise<TokenCountResponse> {
-    const url = new URL(`${this.config.endpoint}/utils/token_counter`);
-    const res = await fetch(url.toString(), {
-      method: "POST",
-      headers: await this.getHeaders(),
-      body: JSON.stringify({ model, messages }),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(
-        `API ${res.status} on /utils/token_counter: ${text.slice(0, 300)}`,
-      );
-    }
-
-    return res.json() as Promise<TokenCountResponse>;
-  }
-
-  /** Clear all cached data */
-  clearCache(): void {
-    this.cache.clear();
-  }
-}
-
-// ─── Webview Helpers ─────────────────────────────────────────────────────────
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function usd(v: number | null | undefined, decimals = 2): string {
-  if (v == null) return "\u2014";
-  return `$${v.toFixed(decimals)}`;
-}
-
-/** Get a human-readable relative time string (e.g., "2m ago", "1h ago"). */
-function getRelativeTime(d: Date): string {
-  const diff = Date.now() - d.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d ago`;
-  return `${Math.floor(days / 30)}mo ago`;
-}
-
-// ─── Budget Overview Panel HTML ──────────────────────────────────────────────
-
-// ─── Chart helpers ───────────────────────────────────────────────────────────
-
-/** Build an SVG horizontal bar chart. Returns empty string if data is empty. */
-function svgHBarChart(
-  items: { label: string; value: number; color?: string }[],
-  maxValue: number,
-  width = 300,
-  barHeight = 18,
-  gap = 4,
-): string {
-  if (items.length === 0) return "";
-  const m = maxValue > 0 ? maxValue : 1;
-  const totalH = items.length * (barHeight + gap);
-  const labelW = 80;
-  const valW = 60;
-  const barW = width - labelW - valW - 10;
-  const colors = [
-    "#4ec9b0",
-    "#e2b714",
-    "#f14c4c",
-    "#569cd6",
-    "#ce9178",
-    "#6a9955",
-    "#c586c0",
-    "#dcdcaa",
-  ];
-
-  const bars = items
-    .map((it, i) => {
-      const y = i * (barHeight + gap);
-      const bw = (it.value / m) * barW;
-      const c = it.color || colors[i % colors.length];
-      return `<text x="0" y="${y + barHeight - 4}" font-size="11" fill="var(--vscode-foreground)">${escapeHtml(it.label.length > 10 ? it.label.slice(0, 10) + ".." : it.label)}</text>
-      <rect x="${labelW}" y="${y}" width="${Math.max(2, bw)}" height="${barHeight}" rx="3" fill="${c}" opacity="0.85"/>
-      <text x="${labelW + Math.max(2, bw) + 4}" y="${y + barHeight - 4}" font-size="10" fill="var(--vscode-foreground)">${usd(it.value, 4)}</text>`;
-    })
-    .join("\n    ");
-
-  return `<svg width="${width}" height="${totalH}" viewBox="0 0 ${width} ${totalH}" style="display:block;margin:8px 0">${bars}</svg>`;
-}
-
-/** Build a simple SVG donut chart. Returns empty string if data is empty. */
-function svgDonut(
-  items: { label: string; value: number }[],
-  size = 140,
-  thickness = 28,
-): string {
-  if (items.length === 0) return "";
-  const total = items.reduce((s, i) => s + i.value, 0);
-  if (total === 0) return "";
-  const cx = size / 2;
-  const cy = size / 2;
-  const r = (size - thickness) / 2;
-  const colors = [
-    "#4ec9b0",
-    "#569cd6",
-    "#ce9178",
-    "#e2b714",
-    "#c586c0",
-    "#6a9955",
-    "#f14c4c",
-    "#dcdcaa",
-  ];
-  let angle = -90;
-  const slices = items
-    .slice(0, 8)
-    .map((it, i) => {
-      const pct = it.value / total;
-      const a = pct * 360;
-      const start = angle;
-      const end = angle + a;
-      angle = end;
-      const sr = ((start - 90) * Math.PI) / 180;
-      const er = ((end - 90) * Math.PI) / 180;
-      const x1 = cx + r * Math.cos(sr);
-      const y1 = cy + r * Math.sin(sr);
-      const x2 = cx + r * Math.cos(er);
-      const y2 = cy + r * Math.sin(er);
-      const large = a > 180 ? 1 : 0;
-      const color = colors[i % colors.length];
-      return `<path d="M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z" fill="${color}" opacity="0.85"/>
-      <text x="${cx + r * 0.55 * Math.cos(sr + (er - sr) / 2)}" y="${cy + r * 0.55 * Math.sin(sr + (er - sr) / 2)}" font-size="9" fill="#fff" text-anchor="middle" dominant-baseline="central">${(pct * 100).toFixed(0)}%</text>`;
-    })
-    .join("\n    ");
-  // center hole (donut)
-  const holeR = r - thickness;
-  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="display:block;margin:8px auto">${slices}
-    <circle cx="${cx}" cy="${cy}" r="${holeR}" fill="var(--vscode-editor-background)"/>
-    <text x="${cx}" y="${cy - 4}" font-size="18" font-weight="700" fill="var(--vscode-foreground)" text-anchor="middle" dominant-baseline="central">${usd(total)}</text>
-    <text x="${cx}" y="${cy + 14}" font-size="9" fill="var(--vscode-foreground)" opacity=".6" text-anchor="middle">total</text>
-  </svg>`;
-}
-
-/** Build an SVG line chart for time-series spend data. */
-function svgLineChart(
-  dataPoints: { label: string; value: number }[],
-  width = 360,
-  height = 140,
-): string {
-  if (dataPoints.length < 2) return "";
-  const maxVal = Math.max(...dataPoints.map((d) => d.value), 1);
-  const padding = { top: 10, right: 10, bottom: 24, left: 10 };
-  const chartW = width - padding.left - padding.right;
-  const chartH = height - padding.top - padding.bottom;
-
-  const stepX = chartW / (dataPoints.length - 1);
-  const points = dataPoints.map((d, i) => ({
-    x: padding.left + i * stepX,
-    y: padding.top + chartH - (d.value / maxVal) * chartH,
-    label: d.label,
-    value: d.value,
-  }));
-
-  const linePath = points
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
-    .join(" ");
-  const areaPath = `${linePath} L ${points[points.length - 1].x.toFixed(1)} ${padding.top + chartH} L ${points[0].x.toFixed(1)} ${padding.top + chartH} Z`;
-
-  const tickStep = Math.max(1, Math.floor(dataPoints.length / 6));
-  const xLabels = points
-    .filter((_, i) => i % tickStep === 0 || i === dataPoints.length - 1)
-    .map(
-      (p) =>
-        `<text x="${p.x}" y="${height - 4}" font-size="9" fill="var(--vscode-foreground)" opacity=".5" text-anchor="middle">${escapeHtml(p.label)}</text>`,
-    )
-    .join("\n    ");
-
-  const dotCircles = points
-    .map(
-      (p) =>
-        `<circle cx="${p.x}" cy="${p.y}" r="3" fill="var(--vscode-focusBorder)" stroke="var(--vscode-editor-background)" stroke-width="2" opacity="0"><title>${escapeHtml(p.label)}: ${usd(p.value, 4)}</title></circle>`,
-    )
-    .join("\n    ");
-
-  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="display:block;margin:8px 0">
-    <defs>
-      <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="var(--vscode-focusBorder)" stop-opacity=".25"/>
-        <stop offset="100%" stop-color="var(--vscode-focusBorder)" stop-opacity=".02"/>
-      </linearGradient>
-    </defs>
-    <path d="${areaPath}" fill="url(#lineGrad)"/>
-    <path d="${linePath}" fill="none" stroke="var(--vscode-focusBorder)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-    ${dotCircles}
-    ${xLabels}
-  </svg>`;
-}
-
-/** Build an inline SVG sparkline (tiny trend). */
-function svgSparkline(values: number[], width = 60, height = 20): string {
-  if (values.length < 2) return "";
-  const maxV = Math.max(...values, 1);
-  const minV = Math.min(...values, 0);
-  const range = maxV - minV || 1;
-  const stepX = width / (values.length - 1);
-  const pts = values
-    .map(
-      (v, i) =>
-        `${(i * stepX).toFixed(0)},${(height - ((v - minV) / range) * height).toFixed(0)}`,
-    )
-    .join(" ");
-  const color =
-    values[values.length - 1] >= values[0]
-      ? "var(--vscode-editorGutter-addedForeground,#4ec9b0)"
-      : "var(--vscode-errorForeground,#f14c4c)";
-  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="display:inline-block;vertical-align:middle;margin:0 4px">
-    <polyline fill="none" stroke="${color}" stroke-width="1.5" points="${pts}"/>
-  </svg>`;
-}
-
-/** Build a set of CSS variable overrides for theme selection. */
-function buildThemeOverrides(theme: string): string {
-  if (theme === "system" || theme === "vscode") return "";
-  if (theme === "light") {
-    return `
-  body{--vscode-editor-background:#ffffff;--vscode-editor-foreground:#1e1e1e;--vscode-editorWidget-background:#f3f3f3;--vscode-widget-border:#d4d4d4;--vscode-panel-border:#e0e0e0;--vscode-focusBorder:#007acc;--vscode-input-background:#ffffff;--vscode-input-foreground:#1e1e1e;--vscode-input-border:#cecece;--vscode-list-hoverBackground:#e8e8e8;--vscode-badge-background:#c4c4c4;--vscode-badge-foreground:#333;--vscode-progressBar-background:#ccc;--vscode-button-background:#007acc;--vscode-button-foreground:#fff;--vscode-button-hoverBackground:#0062a3;--vscode-editorGutter-addedForeground:#1a7f37;--vscode-editorWarning-foreground:#9a6700;--vscode-errorForeground:#cf222e;--vscode-inputValidation-errorBackground:#ffebe9;--vscode-inputValidation-errorBorder:#cf222e}`;
-  }
-
-  if (theme === "dark") {
-    return `
-  body{--vscode-editor-background:#1e1e1e;--vscode-editor-foreground:#d4d4d4;--vscode-editorWidget-background:#252526;--vscode-widget-border:#3c3c3c;--vscode-panel-border:#3c3c3c;--vscode-focusBorder:#4ec9b0;--vscode-input-background:#3c3c3c;--vscode-input-foreground:#d4d4d4;--vscode-input-border:#555;--vscode-list-hoverBackground:#2a2d2e;--vscode-badge-background:#4d4d4d;--vscode-badge-foreground:#fff;--vscode-progressBar-background:#4d4d4d;--vscode-button-background:#0e639c;--vscode-button-foreground:#fff;--vscode-button-hoverBackground:#1177bb;--vscode-editorGutter-addedForeground:#4ec9b0;--vscode-editorWarning-foreground:#e2b714;--vscode-errorForeground:#f14c4c;--vscode-inputValidation-errorBackground:#5a1d1d;--vscode-inputValidation-errorBorder:#be1100}`;
-  }
-
-  if (theme === "hc") {
-    return `
-  body{--vscode-editor-background:#000;--vscode-editor-foreground:#fff;--vscode-editorWidget-background:#0a0a0a;--vscode-widget-border:#6fc3df;--vscode-panel-border:#6fc3df;--vscode-focusBorder:#f38518;--vscode-input-background:#000;--vscode-input-foreground:#fff;--vscode-input-border:#6fc3df;--vscode-list-hoverBackground:#0a0a0a;--vscode-badge-background:#fff;--vscode-badge-foreground:#000;--vscode-progressBar-background:#fff;--vscode-button-background:#fff;--vscode-button-foreground:#000;--vscode-button-hoverBackground:#ccc;--vscode-editorGutter-addedForeground:#1a7f37;--vscode-editorWarning-foreground:#e2b714;--vscode-errorForeground:#f14c4c;--vscode-inputValidation-errorBackground:#5a1d1d;--vscode-inputValidation-errorBorder:#be1100}`;
-  }
-
-  return "";
-}
-
-/** Build a loading spinner page with optional cancel button. */
-function buildLoadingHtml(message: string, showCancel = true): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<style>
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:40px 20px;color:var(--vscode-foreground);background:var(--vscode-editor-background);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:40vh}
-  .spinner{display:inline-block;width:28px;height:28px;border:3px solid var(--vscode-panel-border);border-top-color:var(--vscode-focusBorder);border-radius:50%;animation:spin .8s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  p{opacity:.6;margin-top:16px;font-size:.95em}
-  .cancel-btn{margin-top:20px;padding:8px 24px;border:1px solid var(--vscode-panel-border);border-radius:6px;background:transparent;color:var(--vscode-foreground);cursor:pointer;font-size:.85em;font-family:inherit;transition:all .15s;opacity:.7}
-  .cancel-btn:hover{opacity:1;background:var(--vscode-list-hoverBackground);border-color:var(--vscode-errorForeground);color:var(--vscode-errorForeground)}
-  .skeleton{display:flex;flex-direction:column;gap:12px;width:100%;max-width:400px;margin-top:24px;opacity:.3}
-  .skeleton-bar{height:16px;background:var(--vscode-panel-border);border-radius:4px;animation:pulse 1.5s ease-in-out infinite}
-  .skeleton-bar:nth-child(2){width:80%;animation-delay:.2s}
-  .skeleton-bar:nth-child(3){width:60%;animation-delay:.4s}
-  .skeleton-bar:nth-child(4){height:80px;animation-delay:.6s}
-  @keyframes pulse{0%,100%{opacity:.3}50%{opacity:.7}}
-</style>
-</head>
-<body>
-<div class="spinner"></div>
-<p>${escapeHtml(message)}</p>
-<div class="skeleton">
-  <div class="skeleton-bar"></div>
-  <div class="skeleton-bar"></div>
-  <div class="skeleton-bar"></div>
-  <div class="skeleton-bar" style="height:60px"></div>
-</div>
-${showCancel ? '<button class="cancel-btn" onclick="cancelLoad()">\u2715 Cancel</button>' : ""}
-<script>
-const vscode = acquireVsCodeApi();
-window.cancelLoad = function() { vscode.postMessage({ type: 'cancel' }); };
-</script>
-</body>
-</html>`;
-}
-
-/** Format a CSV row, handling commas and quotes. */
-function csvCell(s: string | number | null | undefined): string {
-  if (s == null) return "";
-  const str = String(s);
-  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-    return '"' + str.replace(/"/g, '""') + '"';
-  }
-
-  return str;
-}
-
-/** Trigger a CSV download via the webview. */
-function csvDownloadScript(
-  filename: string,
-  headers: string[],
-  rows: string[][],
-): string {
-  const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join(
-    "\\n",
-  );
-  return `
-<script>
-(function() {
-  const csv = '${csvContent}';
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = '${filename}';
-  a.click();
-  URL.revokeObjectURL(url);
-})();
-</script>`;
-}
-
-/** Common CSS shared across all webview panels. */
-const COMMON_CSS = `
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px;color:var(--vscode-foreground);background:var(--vscode-editor-background);margin:0}
-  h2{margin-top:0;font-weight:600;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  h2 .title-actions{margin-left:auto;display:flex;gap:6px;align-items:center}
-  h3{margin:20px 0 8px;font-weight:500;border-bottom:1px solid var(--vscode-panel-border);padding-bottom:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  h3 .card-actions{margin-left:auto;display:flex;gap:4px}
-  .card{background:var(--vscode-editorWidget-background);border:1px solid var(--vscode-widget-border);border-radius:8px;padding:12px 16px;margin-bottom:12px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
-  .stat{text-align:center}
-  .stat-value{font-size:1.6em;font-weight:700}
-  .stat-label{font-size:.8em;opacity:.75;margin-top:2px}
-  .warn{color:var(--vscode-editorWarning-foreground,#e2b714)}
-  .err{color:var(--vscode-errorForeground,#f14c4c)}
-  .ok{color:var(--vscode-editorGutter-addedForeground,#4ec9b0)}
-  table{width:100%;border-collapse:collapse;font-size:.85em}
-  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--vscode-panel-border)}
-  th{font-weight:600;opacity:.8;position:sticky;top:0;background:var(--vscode-editor-background);z-index:1}
-  .badge{display:inline-block;background:var(--vscode-badge-background);color:var(--vscode-badge-foreground);border-radius:4px;padding:1px 6px;font-size:.8em;font-weight:500}
-  .badge-success{background:var(--vscode-editorGutter-addedForeground,#4ec9b0);color:#fff}
-  .badge-warn{background:var(--vscode-editorWarning-foreground,#e2b714);color:#1e1e1e}
-  .badge-error{background:var(--vscode-errorForeground,#f14c4c);color:#fff}
-  .error-box{background:color-mix(in srgb,var(--vscode-inputValidation-errorBackground,#5a1d1d) 80%,transparent);border:1px solid var(--vscode-inputValidation-errorBorder,#be1100);border-radius:6px;padding:10px 14px;margin-bottom:10px;font-size:.85em;line-height:1.5}
-  .footer{margin-top:20px;padding:12px;text-align:center;font-size:.72em;opacity:.5;border-top:1px solid var(--vscode-panel-border);background:var(--vscode-editorWidget-background);border-radius:0 0 8px 8px;display:flex;justify-content:center;gap:16px;flex-wrap:wrap}
-  .bar-container{height:8px;background:color-mix(in srgb,var(--vscode-progressBar-background,#333) 60%,transparent);border-radius:4px;overflow:hidden;margin:8px 0}
-  .bar-fill{height:100%;border-radius:4px;transition:width .8s cubic-bezier(.4,0,.2,1)}
-  .bar-fill.green{background:linear-gradient(90deg,var(--vscode-editorGutter-addedForeground,#4ec9b0),#6dd8c0)}
-  .bar-fill.yellow{background:linear-gradient(90deg,var(--vscode-editorWarning-foreground,#e2b714),#f0c929)}
-  .bar-fill.red{background:linear-gradient(90deg,var(--vscode-errorForeground,#f14c4c),#f06060)}
-  .chart-row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;justify-content:center}
-  .legend{font-size:.75em;margin-top:4px;display:flex;flex-wrap:wrap;gap:6px}
-  .legend-item{display:inline-flex;align-items:center;margin-right:8px;white-space:nowrap;font-size:.82em;opacity:.85}
-  .legend-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle;flex-shrink:0}
-  .toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:14px;padding:10px 14px;background:var(--vscode-editorWidget-background);border:1px solid var(--vscode-widget-border);border-radius:8px;position:sticky;top:0;z-index:10}
-  .toolbar-btn{padding:5px 14px;border:1px solid var(--vscode-panel-border);border-radius:5px;background:transparent;color:var(--vscode-foreground);cursor:pointer;font-size:.82em;font-family:inherit;transition:all .15s ease;white-space:nowrap}
-  .toolbar-btn:hover{background:var(--vscode-list-hoverBackground);border-color:var(--vscode-focusBorder)}
-  .toolbar-btn.active{background:var(--vscode-button-background);color:var(--vscode-button-foreground);border-color:var(--vscode-button-background);font-weight:500}
-  .toolbar-btn.active:hover{background:var(--vscode-button-hoverBackground)}
-  .toolbar-btn.primary{background:var(--vscode-button-background);color:var(--vscode-button-foreground);border-color:var(--vscode-button-background)}
-  .toolbar-btn.primary:hover{background:var(--vscode-button-hoverBackground)}
-  .toolbar-sep{width:1px;height:24px;background:var(--vscode-panel-border);margin:0 6px;flex-shrink:0}
-  .toolbar-label{font-size:.78em;opacity:.7;margin-right:2px}
-  .toolbar-date{background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border);border-radius:4px;padding:3px 8px;font-size:.82em;font-family:inherit}
-  .summary-bar{display:flex;flex-wrap:wrap;gap:0;margin-bottom:14px;background:var(--vscode-editorWidget-background);border:1px solid var(--vscode-widget-border);border-radius:8px;overflow:hidden}
-  .summary-item{flex:1;min-width:100px;padding:10px 12px;text-align:center;border-right:1px solid var(--vscode-panel-border)}
-  .summary-item:last-child{border-right:none}
-  .summary-value{font-size:1.15em;font-weight:700;line-height:1.3}
-  .summary-label{font-size:.7em;opacity:.65;text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
-  .trend-up{color:var(--vscode-errorForeground,#f14c4c)}
-  .trend-down{color:var(--vscode-editorGutter-addedForeground,#4ec9b0)}
-  .empty-state{padding:28px 16px;text-align:center;opacity:.5}
-  .empty-state .empty-icon{font-size:2em;margin-bottom:10px;display:block;opacity:.6}
-  .empty-state .empty-text{font-size:.88em;line-height:1.6}
-  .table-wrap{overflow-x:auto;margin:0 -4px;padding:0 4px}
-  .search-bar{display:flex;gap:8px;margin-bottom:12px;align-items:center}
-  .search-input{flex:1;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border);border-radius:5px;padding:6px 10px;font-size:.85em;font-family:inherit;outline:none;transition:border-color .15s}
-  .search-input:focus{border-color:var(--vscode-focusBorder)}
-  .search-input::placeholder{opacity:.45}
-  .copy-btn{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border:1px solid var(--vscode-panel-border);border-radius:4px;background:transparent;color:var(--vscode-foreground);cursor:pointer;font-size:.76em;font-family:inherit;transition:all .15s;opacity:.6}
-  .copy-btn:hover{opacity:1;background:var(--vscode-list-hoverBackground);border-color:var(--vscode-focusBorder)}
-  .copy-btn.copied{background:var(--vscode-editorGutter-addedForeground,#4ec9b0);color:#fff;border-color:var(--vscode-editorGutter-addedForeground,#4ec9b0);opacity:1}
-  tbody tr{cursor:default;transition:background .12s}
-  tbody tr:hover{background:var(--vscode-list-hoverBackground)}
-  .copyable{display:inline-flex;align-items:center;gap:4px;cursor:pointer;padding:2px 4px;border-radius:3px;transition:background .12s}
-  .copyable:hover{background:var(--vscode-list-hoverBackground)}
-  .copyable .copy-icon{opacity:0;font-size:.7em;transition:opacity .12s}
-  .copyable:hover .copy-icon{opacity:.5}
-  .rel-time{font-size:.78em;opacity:.6;margin-left:4px;white-space:nowrap}
-  .theme-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px solid var(--vscode-panel-border);border-radius:5px;background:transparent;color:var(--vscode-foreground);cursor:pointer;font-size:.78em;font-family:inherit;transition:all .15s;opacity:.7}
-  .theme-btn:hover{opacity:1;background:var(--vscode-list-hoverBackground)}
-  .theme-btn.active{background:var(--vscode-button-background);color:var(--vscode-button-foreground);border-color:var(--vscode-button-background)}
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:8px 20px;border-radius:6px;font-size:.82em;background:var(--vscode-editorWidget-background);border:1px solid var(--vscode-widget-border);box-shadow:0 4px 12px rgba(0,0,0,.15);opacity:0;transition:opacity .25s;z-index:100;pointer-events:none}
-  .toast.show{opacity:1}
-  .refresh-spin{display:inline-block;animation:spin .8s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-`;
-
-// ─── Budget Overview Panel HTML ──────────────────────────────────────────────
+import { getConfig, getDateRange } from "./config";
+import { CoreLLMApiClient } from "./client";
+import {
+  COMMON_CSS,
+  buildThemeOverrides,
+  buildLoadingHtml,
+  escapeHtml,
+  usd,
+  getRelativeTime,
+  svgHBarChart,
+  svgDonut,
+  svgLineChart,
+  svgSparkline,
+  csvCell,
+} from "./helpers";
+import { buildHealthDashboardHtml, getLoadingHtml as healthLoading } from "./panels/healthDashboard";
+import { buildProviderSpendHtml } from "./panels/providerSpend";
+import { buildUserManagerHtml } from "./panels/userManager";
+import { buildUnifiedDashboardHtml, getLoadingHtml as dashboardLoading } from "./panels/unifiedDashboard";
+import {
+  KeyInfoResponse,
+  SpendLogEntry,
+  SpendLogsResponse,
+  ProviderBudgetEntry,
+  ProviderBudgetResponse,
+  GlobalSpendReportEntry,
+  KeyListItem,
+  KeyListResponse,
+  GlobalSpendEntry,
+  GlobalSpendKeysResponse,
+  GlobalSpendModelEntry,
+  GlobalSpendModelsResponse,
+  GlobalSpendTeamEntry,
+  GlobalSpendTeamsResponse,
+  GlobalSpendProvidersResponse,
+  TeamInfoResponse,
+  TeamListResponse,
+  ModelInfoEntry,
+  ModelInfoResponse,
+  SpendTagEntry,
+  SpendTagsResponse,
+  ActivityEntry,
+  ActivityResponse,
+  KeyHealthResponse,
+  HealthEndpoint,
+  HealthResponse,
+  ReadinessResponse,
+  UserInfoResponse,
+  UserListResponse,
+  GuardrailInfo,
+  GuardrailsListResponse,
+  ConfigYamlResponse,
+  TokenCountResponse,
+  CacheEntry,
+  StatusBarDisplay,
+  ReportDuration,
+  DURATION_LABELS,
+  DURATION_MS,
+  ExtensionConfig,
+} from "./types";
 
 function buildBudgetOverviewHtml(data: {
   keyInfo: KeyInfoResponse | null;
@@ -2625,6 +1444,10 @@ class BalanceStatusBarManager {
   private modelInfoPanel: vscode.WebviewPanel | undefined;
   private spendTagsPanel: vscode.WebviewPanel | undefined;
   private keyHealthPanel: vscode.WebviewPanel | undefined;
+  private healthDashboardPanel: vscode.WebviewPanel | undefined;
+  private providerSpendPanel: vscode.WebviewPanel | undefined;
+  private userManagerPanel: vscode.WebviewPanel | undefined;
+  private unifiedDashboardPanel: vscode.WebviewPanel | undefined;
 
   // ── Display Cycling ──────────────────────────────────────────────────
   private displayCycleIndex = 0;
@@ -2745,6 +1568,18 @@ class BalanceStatusBarManager {
       ),
       vscode.commands.registerCommand("corellm.showKeyHealth", () =>
         this.openKeyHealth(),
+      ),
+      vscode.commands.registerCommand("corellm.showHealthDashboard", () =>
+        this.openHealthDashboard(),
+      ),
+      vscode.commands.registerCommand("corellm.showProviderSpend", () =>
+        this.openProviderSpend(),
+      ),
+      vscode.commands.registerCommand("corellm.showUserManager", () =>
+        this.openUserManager(),
+      ),
+      vscode.commands.registerCommand("corellm.showUnifiedDashboard", () =>
+        this.openUnifiedDashboard(),
       ),
     );
   }
@@ -3933,6 +2768,250 @@ class BalanceStatusBarManager {
     if (this.modelInfoPanel) this.refreshModelInfoPanel();
     if (this.spendTagsPanel) this.refreshSpendTagsPanel();
     if (this.keyHealthPanel) this.refreshKeyHealthPanel();
+    if (this.healthDashboardPanel) this.refreshHealthDashboardPanel();
+    if (this.providerSpendPanel) this.refreshProviderSpendPanel();
+    if (this.userManagerPanel) this.refreshUserManagerPanel();
+    if (this.unifiedDashboardPanel) this.refreshUnifiedDashboard();
+  }
+
+  // ── Health Dashboard Panel ──────────────────────────────────────────────
+
+  private async openHealthDashboard(): Promise<void> {
+    if (this.healthDashboardPanel) {
+      this.healthDashboardPanel.reveal(vscode.ViewColumn.Beside);
+      return;
+    }
+    this.healthDashboardPanel = vscode.window.createWebviewPanel(
+      "corellmHealthDashboard",
+      "CoreLLM Health Dashboard",
+      vscode.ViewColumn.Beside,
+      { enableScripts: true },
+    );
+    this.healthDashboardPanel.onDidDispose(() => { this.healthDashboardPanel = undefined; });
+    this.healthDashboardPanel.webview.onDidReceiveMessage((msg) => {
+      switch (msg.type) {
+        case "refresh": this.refreshHealthDashboardPanel(); break;
+        case "setTheme": this.activeTheme = msg.theme; this.refreshAllPanels(); break;
+        case "close": this.healthDashboardPanel?.dispose(); break;
+      }
+    });
+    this.healthDashboardPanel.webview.html = healthLoading("Loading Health Dashboard\u2026");
+    await this.refreshHealthDashboardPanel();
+  }
+
+  private async refreshHealthDashboardPanel(): Promise<void> {
+    if (!this.healthDashboardPanel) return;
+    let health: HealthResponse | null = null;
+    let keyHealth: KeyHealthResponse | null = null;
+    let readiness: ReadinessResponse | null = null;
+    let exceptions = null;
+    let healthError: string | null = null;
+    let keyHealthError: string | null = null;
+    let readinessError: string | null = null;
+    let exceptionsError: string | null = null;
+    try { health = await this.client.fetchHealth(); } catch (e) { healthError = String(e); }
+    try { keyHealth = await this.client.fetchKeyHealth(); } catch (e) { keyHealthError = String(e); }
+    try { readiness = await this.client.fetchReadiness(); } catch (e) { readinessError = String(e); }
+    try {
+      const dr = getDateRange(this.config.reportDuration, this.config.reportCustomStart, this.config.reportCustomEnd);
+      exceptions = await this.client.fetchGlobalActivityExceptions(dr.start, dr.end);
+    } catch (e) { exceptionsError = String(e); }
+    if (this.healthDashboardPanel) {
+      this.healthDashboardPanel.webview.html = buildHealthDashboardHtml({
+        health, keyHealth, readiness, exceptions,
+        healthError, keyHealthError, readinessError, exceptionsError,
+        activeTheme: this.activeTheme,
+      });
+    }
+  }
+
+  // ── Provider Spend Panel ────────────────────────────────────────────────
+
+  private async openProviderSpend(): Promise<void> {
+    if (this.providerSpendPanel) {
+      this.providerSpendPanel.reveal(vscode.ViewColumn.Beside);
+      return;
+    }
+    this.providerSpendPanel = vscode.window.createWebviewPanel(
+      "corellmProviderSpend",
+      "CoreLLM Provider Spend",
+      vscode.ViewColumn.Beside,
+      { enableScripts: true },
+    );
+    this.providerSpendPanel.onDidDispose(() => { this.providerSpendPanel = undefined; });
+    this.providerSpendPanel.webview.onDidReceiveMessage((msg) => {
+      switch (msg.type) {
+        case "refresh": this.refreshProviderSpendPanel(); break;
+        case "exportCsv": this.exportProviderSpendCsv(); break;
+        case "setTheme": this.activeTheme = msg.theme; this.refreshAllPanels(); break;
+        case "close": this.providerSpendPanel?.dispose(); break;
+      }
+    });
+    this.providerSpendPanel.webview.html = buildLoadingHtml("Loading Provider Spend\u2026", true);
+    await this.refreshProviderSpendPanel();
+  }
+
+  private async refreshProviderSpendPanel(): Promise<void> {
+    if (!this.providerSpendPanel) return;
+    const dr = getDateRange(this.config.reportDuration, this.config.reportCustomStart, this.config.reportCustomEnd);
+    let providers: GlobalSpendProvidersResponse | null = null;
+    let error: string | null = null;
+    try { providers = await this.client.fetchGlobalSpendProviders(dr.start, dr.end); } catch (e) { error = String(e); }
+    if (this.providerSpendPanel) {
+      this.providerSpendPanel.webview.html = buildProviderSpendHtml({
+        providers, error, activeTheme: this.activeTheme,
+        dateRange: `${dr.start} \u2013 ${dr.end}`,
+      });
+    }
+  }
+
+  private async exportProviderSpendCsv(): Promise<void> {
+    const dr = getDateRange(this.config.reportDuration, this.config.reportCustomStart, this.config.reportCustomEnd);
+    let providers: GlobalSpendProvidersResponse | null = null;
+    try { providers = await this.client.fetchGlobalSpendProviders(dr.start, dr.end); } catch { /* ignore */ }
+    const list = providers?.providers ?? [];
+    const headers = ["Provider", "Spend", "Tokens", "Requests"];
+    const rows = list.map((p) => [p.provider || "", String(p.total_spend ?? 0), String(p.total_tokens ?? 0), String(p.count ?? 0)].map((c) => csvCell(c)));
+    const csv = [headers.join(","), ...rows.join("\n")].join("\n");
+    const doc = await vscode.workspace.openTextDocument({ content: csv, language: "csv" });
+    await vscode.window.showTextDocument(doc);
+  }
+
+  // ── User Manager Panel ──────────────────────────────────────────────────
+
+  private async openUserManager(): Promise<void> {
+    if (this.userManagerPanel) {
+      this.userManagerPanel.reveal(vscode.ViewColumn.Beside);
+      return;
+    }
+    this.userManagerPanel = vscode.window.createWebviewPanel(
+      "corellmUserManager",
+      "CoreLLM User Manager",
+      vscode.ViewColumn.Beside,
+      { enableScripts: true },
+    );
+    this.userManagerPanel.onDidDispose(() => { this.userManagerPanel = undefined; });
+    this.userManagerPanel.webview.onDidReceiveMessage((msg) => {
+      switch (msg.type) {
+        case "refresh": this.refreshUserManagerPanel(); break;
+        case "exportCsv": this.exportUserManagerCsv(); break;
+        case "setTheme": this.activeTheme = msg.theme; this.refreshAllPanels(); break;
+        case "close": this.userManagerPanel?.dispose(); break;
+      }
+    });
+    this.userManagerPanel.webview.html = buildLoadingHtml("Loading Users\u2026", true);
+    await this.refreshUserManagerPanel();
+  }
+
+  private async refreshUserManagerPanel(): Promise<void> {
+    if (!this.userManagerPanel) return;
+    let users: UserInfoResponse[] = [];
+    let error: string | null = null;
+    try { const r = await this.client.fetchUserList(); users = r.users ?? []; } catch (e) { error = String(e); }
+    if (this.userManagerPanel) {
+      this.userManagerPanel.webview.html = buildUserManagerHtml({ users, error, activeTheme: this.activeTheme });
+    }
+  }
+
+  private async exportUserManagerCsv(): Promise<void> {
+    let users: UserInfoResponse[] = [];
+    try { const r = await this.client.fetchUserList(); users = r.users ?? []; } catch { /* ignore */ }
+    const headers = ["User", "Email", "Spend", "Max Budget", "Teams"];
+    const rows = users.map((u) => [
+      u.user_alias || u.user_id || "", u.user_email || "", String(u.spend ?? 0),
+      String(u.max_budget ?? ""), (u.teams ?? []).join("; "),
+    ].map((c) => csvCell(c)));
+    const csv = [headers.join(","), ...rows.join("\n")].join("\n");
+    const doc = await vscode.workspace.openTextDocument({ content: csv, language: "csv" });
+    await vscode.window.showTextDocument(doc);
+  }
+
+  // ── Unified Dashboard Panel ─────────────────────────────────────────────
+
+  private async openUnifiedDashboard(): Promise<void> {
+    if (this.unifiedDashboardPanel) {
+      this.unifiedDashboardPanel.reveal(vscode.ViewColumn.One);
+      return;
+    }
+    this.unifiedDashboardPanel = vscode.window.createWebviewPanel(
+      "corellmUnifiedDashboard",
+      "CoreLLM Dashboard",
+      vscode.ViewColumn.One,
+      { enableScripts: true },
+    );
+    this.unifiedDashboardPanel.onDidDispose(() => { this.unifiedDashboardPanel = undefined; });
+    this.unifiedDashboardPanel.webview.onDidReceiveMessage((msg) => {
+      switch (msg.type) {
+        case "refresh": this.refreshUnifiedDashboard(); break;
+        case "exportCsv": this.exportUnifiedDashboardCsv(); break;
+        case "setTheme": this.activeTheme = msg.theme; this.refreshAllPanels(); break;
+        case "switchTab": this.unifiedActiveTab = msg.tab; break;
+        case "close": this.unifiedDashboardPanel?.dispose(); break;
+      }
+    });
+    this.unifiedDashboardPanel.webview.html = dashboardLoading("Loading Dashboard\u2026");
+    await this.refreshUnifiedDashboard();
+  }
+
+  private unifiedActiveTab = "overview";
+
+  private async refreshUnifiedDashboard(): Promise<void> {
+    if (!this.unifiedDashboardPanel) return;
+    const dr = getDateRange(this.config.reportDuration, this.config.reportCustomStart, this.config.reportCustomEnd);
+    let keyInfo: KeyInfoResponse | null = null;
+    let providerBudgets: ProviderBudgetResponse | null = null;
+    let globalReport: GlobalSpendReportEntry[] = [];
+    let spendLogs: SpendLogEntry[] = [];
+    let health: HealthResponse | null = null;
+    let readiness: ReadinessResponse | null = null;
+    let providerSpend: GlobalSpendProvidersResponse | null = null;
+    let keyError: string | null = null;
+    let providerError: string | null = null;
+    let reportError: string | null = null;
+    let healthError: string | null = null;
+    let readinessError: string | null = null;
+    let providerSpendError: string | null = null;
+
+    const results = await Promise.allSettled([
+      this.client.fetchKeyInfo(),
+      this.client.fetchProviderBudgets(),
+      this.client.fetchGlobalSpendReport(dr.start, dr.end),
+      this.client.fetchSpendLogs(10),
+      this.client.fetchHealth(),
+      this.client.fetchReadiness(),
+      this.client.fetchGlobalSpendProviders(dr.start, dr.end),
+    ]);
+    if (results[0].status === "fulfilled") keyInfo = results[0].value; else keyError = (results[0].reason as Error)?.message ?? "Unknown error";
+    if (results[1].status === "fulfilled") providerBudgets = results[1].value; else providerError = (results[1].reason as Error)?.message ?? "Unknown error";
+    if (results[2].status === "fulfilled") globalReport = results[2].value; else reportError = (results[2].reason as Error)?.message ?? "Unknown error";
+    if (results[3].status === "fulfilled") spendLogs = results[3].value;
+    if (results[4].status === "fulfilled") health = results[4].value; else healthError = (results[4].reason as Error)?.message ?? "Unknown error";
+    if (results[5].status === "fulfilled") readiness = results[5].value; else readinessError = (results[5].reason as Error)?.message ?? "Unknown error";
+    if (results[6].status === "fulfilled") providerSpend = results[6].value; else providerSpendError = (results[6].reason as Error)?.message ?? "Unknown error";
+
+    if (this.unifiedDashboardPanel) {
+      this.unifiedDashboardPanel.webview.html = buildUnifiedDashboardHtml({
+        keyInfo, providerBudgets, globalReport, spendLogs, health, readiness, providerSpend,
+        keyError, providerError, reportError, healthError, readinessError, providerSpendError,
+        activeTheme: this.activeTheme,
+        dateRange: `${dr.start} \u2013 ${dr.end}`,
+        activeTab: this.unifiedActiveTab,
+      });
+    }
+  }
+
+  private async exportUnifiedDashboardCsv(): Promise<void> {
+    const dr = getDateRange(this.config.reportDuration, this.config.reportCustomStart, this.config.reportCustomEnd);
+    let report: GlobalSpendReportEntry[] = [];
+    try { report = await this.client.fetchGlobalSpendReport(dr.start, dr.end); } catch { /* ignore */ }
+    const rows: string[][] = [["Date", "Spend"]];
+    for (const day of report) {
+      const ds = day.teams?.reduce((s, t) => s + (t.spend ?? 0), 0) ?? 0;
+      rows.push([day["group-by-day"] || "", String(ds)]);
+    }
+    const csv = rows.map((r) => r.map((c) => csvCell(c)).join(",")).join("\n");
+    const doc = await vscode.workspace.openTextDocument({ content: csv, language: "csv" });
+    await vscode.window.showTextDocument(doc);
   }
 
   // ── Spend Alert Check ───────────────────────────────────────────────────
@@ -4436,7 +3515,7 @@ let updateTimer: NodeJS.Timeout | undefined;
 
 const EXTENSION_ID = "litellm-tools.corellm";
 const GITHUB_REPO = "core-innovation/litellm-balance-checker";
-const CURRENT_VERSION = "0.6.0";
+const CURRENT_VERSION = "0.7.0";
 const LAST_NOTIFIED_KEY = "corellm.lastNotifiedVersion";
 const LAST_SEEN_VERSION_KEY = "corellm.lastSeenVersion";
 
