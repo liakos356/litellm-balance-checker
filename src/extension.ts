@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as os from 'os';
 import * as fs from 'fs';
+import { buildTutorialHtml } from './tutorial';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1198,6 +1199,7 @@ class BalanceStatusBarManager {
   private budgetOverviewPanel: vscode.WebviewPanel | undefined;
   private spendLogsPanel: vscode.WebviewPanel | undefined;
   private keyListPanel: vscode.WebviewPanel | undefined;
+  private tutorialPanel: vscode.WebviewPanel | undefined;
 
   // ── Display Cycling ──────────────────────────────────────────────────
   private displayCycleIndex = 0;
@@ -1258,7 +1260,8 @@ class BalanceStatusBarManager {
             vscode.commands.executeCommand('workbench.action.openSettings', '@ext:litellm-tools.corellm');
           }
         });
-      })
+      }),
+      vscode.commands.registerCommand('corellm.showTutorial', () => this.openTutorial())
     );
   }
 
@@ -1351,10 +1354,10 @@ class BalanceStatusBarManager {
           break;
         case 'setTheme':
           this.activeTheme = msg.theme;
-          // Re-render all open panels with new theme
           if (this.budgetOverviewPanel) this.refreshBudgetOverview();
           if (this.spendLogsPanel) this.refreshSpendLogsPanel();
           if (this.keyListPanel) this.refreshKeyListPanel();
+          if (this.tutorialPanel) this.refreshTutorial();
           break;
         case 'cancel':
           this.budgetOverviewPanel?.dispose();
@@ -1473,6 +1476,7 @@ class BalanceStatusBarManager {
           if (this.spendLogsPanel) this.refreshSpendLogsPanel();
           if (this.budgetOverviewPanel) this.refreshBudgetOverview();
           if (this.keyListPanel) this.refreshKeyListPanel();
+          if (this.tutorialPanel) this.refreshTutorial();
           break;
         case 'close':
           this.spendLogsPanel?.dispose();
@@ -1519,6 +1523,7 @@ class BalanceStatusBarManager {
           if (this.keyListPanel) this.refreshKeyListPanel();
           if (this.budgetOverviewPanel) this.refreshBudgetOverview();
           if (this.spendLogsPanel) this.refreshSpendLogsPanel();
+          if (this.tutorialPanel) this.refreshTutorial();
           break;
         case 'close':
           this.keyListPanel?.dispose();
@@ -1542,6 +1547,42 @@ class BalanceStatusBarManager {
     let error: string | null = null;
     try { const r = await this.client.fetchKeyList(); keys = r.keys ?? []; } catch (err) { error = String(err); }
     if (this.keyListPanel) this.keyListPanel.webview.html = buildKeyListHtml(keys, error, this.activeTheme);
+  }
+
+  // ── Tutorial / Getting Started ──────────────────────────────────────────
+
+  private openTutorial(): void {
+    if (this.tutorialPanel) { this.tutorialPanel.reveal(vscode.ViewColumn.One); return; }
+    this.tutorialPanel = vscode.window.createWebviewPanel(
+      'corellmTutorial', 'CoreLLM Tutorial', vscode.ViewColumn.One, { enableScripts: true }
+    );
+    this.tutorialPanel.onDidDispose(() => { this.tutorialPanel = undefined; });
+    this.tutorialPanel.webview.onDidReceiveMessage((msg) => {
+      switch (msg.type) {
+        case 'setTheme':
+          this.activeTheme = msg.theme;
+          if (this.tutorialPanel) this.refreshTutorial();
+          if (this.budgetOverviewPanel) this.refreshBudgetOverview();
+          if (this.spendLogsPanel) this.refreshSpendLogsPanel();
+          if (this.keyListPanel) this.refreshKeyListPanel();
+          break;
+        case 'openSettings':
+          vscode.commands.executeCommand('workbench.action.openSettings', '@ext:litellm-tools.corellm');
+          break;
+        case 'openBudgetOverview':
+          this.openBudgetOverview();
+          break;
+        case 'close':
+          this.tutorialPanel?.dispose();
+          break;
+      }
+    });
+    this.refreshTutorial();
+  }
+
+  private refreshTutorial(): void {
+    if (!this.tutorialPanel) return;
+    this.tutorialPanel.webview.html = buildTutorialHtml(this.activeTheme);
   }
 
   // ── Export CSV ──────────────────────────────────────────────────────────

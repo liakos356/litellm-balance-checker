@@ -65,6 +65,10 @@
       {
         "command": "corellm.showAbout",
         "title": "CoreLLM: About"
+      },
+      {
+        "command": "corellm.showTutorial",
+        "title": "CoreLLM: Show Tutorial"
       }
     ],
     "configuration": {
