@@ -2,6 +2,15 @@
 
 All notable changes to the CoreLLM VS Code extension.
 
+## 0.8.0
+
+- **Security:** Credentials (`apiKey`, `adminKey`, `password`) are now stored in the OS keychain via VS Code's `SecretStorage` API instead of plaintext `settings.json`
+- **New:** `CoreLLM: Set API Key (Secure)` — store API key in OS keychain
+- **New:** `CoreLLM: Set Admin Key (Secure)` — store admin key in OS keychain
+- **New:** `CoreLLM: Set Password (Secure)` — store password in OS keychain
+- **New:** `CoreLLM: Clear All Stored Credentials` — remove all secrets from keychain
+- **Migration:** Existing credentials in `settings.json` are automatically migrated to the OS keychain on first launch
+
 ## 0.7.4
 
 - **Fixed:** Update checker was broken — repo had tags but no GitHub Releases. Created releases for all tags and improved `checkForUpdates` to handle rate limiting, download failures, network errors, and the "no VSIX asset" case gracefully.

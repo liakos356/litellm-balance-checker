@@ -2,7 +2,7 @@
   "name": "corellm",
   "displayName": "CoreLLM",
   "description": "Monitor LiteLLM API key balances, budgets, and usage directly from VS Code status bar",
-  "version": "0.7.4",
+  "version": "0.8.0",
   "publisher": "litellm-tools",
   "icon": "icon.png",
   "license": "MIT",
@@ -135,6 +135,22 @@
       {
         "command": "corellm.showUnifiedDashboard",
         "title": "CoreLLM: Show Dashboard"
+      },
+      {
+        "command": "corellm.setApiKey",
+        "title": "CoreLLM: Set API Key (Secure)"
+      },
+      {
+        "command": "corellm.setAdminKey",
+        "title": "CoreLLM: Set Admin Key (Secure)"
+      },
+      {
+        "command": "corellm.setPassword",
+        "title": "CoreLLM: Set Password (Secure)"
+      },
+      {
+        "command": "corellm.clearCredentials",
+        "title": "CoreLLM: Clear All Stored Credentials"
       }
     ],
     "configuration": {

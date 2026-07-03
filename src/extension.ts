@@ -5,6 +5,16 @@ import { buildTutorialHtml, buildChangelogHtml } from "./tutorial";
 import { getConfig, getDateRange } from "./config";
 import { CoreLLMApiClient } from "./client";
 import {
+  resolveConfig,
+  storeSecret,
+  clearSecret,
+  migrateFromSettings,
+  CREDENTIAL_KEYS,
+  SECRET_API_KEY,
+  SECRET_ADMIN_KEY,
+  SECRET_PASSWORD,
+} from "./secrets";
+import {
   COMMON_CSS,
   buildThemeOverrides,
   buildLoadingHtml,
@@ -1452,9 +1462,11 @@ class BalanceStatusBarManager {
   // ── Display Cycling ──────────────────────────────────────────────────
   private displayCycleIndex = 0;
   private lastKeyInfo: KeyInfoResponse | null = null;
+  private secrets: vscode.SecretStorage;
 
-  constructor() {
-    this.config = getConfig();
+  constructor(secrets: vscode.SecretStorage, initialConfig?: ExtensionConfig) {
+    this.secrets = secrets;
+    this.config = initialConfig ?? getConfig();
     this.activeTheme = this.config.webviewTheme;
     this.client = new CoreLLMApiClient(this.config);
 
@@ -1581,14 +1593,85 @@ class BalanceStatusBarManager {
       vscode.commands.registerCommand("corellm.showUnifiedDashboard", () =>
         this.openUnifiedDashboard(),
       ),
+
+      // ── Credential Management (SecretStorage) ──────────────────────
+      vscode.commands.registerCommand("corellm.setApiKey", async () => {
+        const value = await vscode.window.showInputBox({
+          prompt: "Enter your LiteLLM API key",
+          password: true,
+          placeHolder: "sk-...",
+          ignoreFocusOut: true,
+        });
+        if (value !== undefined) {
+          await storeSecret(this.secrets, SECRET_API_KEY, value);
+          this.config = await resolveConfig(this.secrets);
+          this.client = new CoreLLMApiClient(this.config);
+          vscode.window.showInformationMessage(
+            "CoreLLM: API key saved securely (OS keychain).",
+          );
+          this.refresh();
+        }
+      }),
+      vscode.commands.registerCommand("corellm.setAdminKey", async () => {
+        const value = await vscode.window.showInputBox({
+          prompt: "Enter your LiteLLM admin/proxy master key",
+          password: true,
+          placeHolder: "sk-...",
+          ignoreFocusOut: true,
+        });
+        if (value !== undefined) {
+          await storeSecret(this.secrets, SECRET_ADMIN_KEY, value);
+          this.config = await resolveConfig(this.secrets);
+          this.client = new CoreLLMApiClient(this.config);
+          vscode.window.showInformationMessage(
+            "CoreLLM: Admin key saved securely (OS keychain).",
+          );
+          this.refresh();
+        }
+      }),
+      vscode.commands.registerCommand("corellm.setPassword", async () => {
+        const value = await vscode.window.showInputBox({
+          prompt: "Enter your LiteLLM UI password",
+          password: true,
+          placeHolder: "password",
+          ignoreFocusOut: true,
+        });
+        if (value !== undefined) {
+          await storeSecret(this.secrets, SECRET_PASSWORD, value);
+          this.config = await resolveConfig(this.secrets);
+          this.client = new CoreLLMApiClient(this.config);
+          vscode.window.showInformationMessage(
+            "CoreLLM: Password saved securely (OS keychain).",
+          );
+          this.refresh();
+        }
+      }),
+      vscode.commands.registerCommand("corellm.clearCredentials", async () => {
+        const confirm = await vscode.window.showWarningMessage(
+          "Are you sure you want to clear all stored CoreLLM credentials from the OS keychain?",
+          { modal: true },
+          "Yes, clear all",
+        );
+        if (confirm === "Yes, clear all") {
+          for (const key of CREDENTIAL_KEYS) {
+            await clearSecret(this.secrets, key);
+          }
+          this.config = await resolveConfig(this.secrets);
+          this.client = new CoreLLMApiClient(this.config);
+          vscode.window.showInformationMessage(
+            "CoreLLM: All stored credentials cleared.",
+          );
+          this.refresh();
+        }
+      }),
     );
   }
 
   private watchConfigChanges(): void {
     this.disposables.push(
-      vscode.workspace.onDidChangeConfiguration((e) => {
+      vscode.workspace.onDidChangeConfiguration(async (e) => {
         if (e.affectsConfiguration("corellm")) {
-          this.config = getConfig();
+          this.config = await resolveConfig(this.secrets);
           this.client = new CoreLLMApiClient(this.config);
           this.setInitialDisplayMode();
           this.stopAutoRefresh();
@@ -3515,7 +3598,7 @@ let updateTimer: NodeJS.Timeout | undefined;
 
 const EXTENSION_ID = "litellm-tools.corellm";
 const GITHUB_REPO = "core-innovation/litellm-balance-checker";
-const CURRENT_VERSION = "0.7.4";
+const CURRENT_VERSION = "0.8.0";
 const LAST_NOTIFIED_KEY = "corellm.lastNotifiedVersion";
 const LAST_SEEN_VERSION_KEY = "corellm.lastSeenVersion";
 
@@ -3763,7 +3846,7 @@ function compareVersions(a: string, b: string): number {
 
 // ─── Activation ──────────────────────────────────────────────────────────────
 
-export function activate(context: vscode.ExtensionContext): void {
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
   try {
     console.log("CoreLLM activating...");
 
@@ -3774,7 +3857,16 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
-  manager = new BalanceStatusBarManager();
+  // Migrate credentials from settings.json to SecretStorage (OS keychain)
+  const migrated = await migrateFromSettings(context.secrets);
+  if (migrated) {
+    console.log("CoreLLM: Migrated credentials to OS keychain");
+  }
+
+  // Resolve config merging settings + SecretStorage
+  const initialConfig = await resolveConfig(context.secrets);
+
+  manager = new BalanceStatusBarManager(context.secrets, initialConfig);
   context.subscriptions.push(manager);
   manager.start();
 
