@@ -2,7 +2,7 @@
   "name": "corellm",
   "displayName": "CoreLLM",
   "description": "Monitor LiteLLM API key balances, budgets, and usage directly from VS Code status bar",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "publisher": "litellm-tools",
   "icon": "icon.png",
   "license": "MIT",
@@ -69,6 +69,34 @@
       {
         "command": "corellm.showTutorial",
         "title": "CoreLLM: Show Tutorial"
+      },
+      {
+        "command": "corellm.showGlobalSpend",
+        "title": "CoreLLM: Show Global Spend"
+      },
+      {
+        "command": "corellm.showTeams",
+        "title": "CoreLLM: Show Teams"
+      },
+      {
+        "command": "corellm.showActivity",
+        "title": "CoreLLM: Show Activity"
+      },
+      {
+        "command": "corellm.showModelInfo",
+        "title": "CoreLLM: Show Model Info"
+      },
+      {
+        "command": "corellm.showSpendByTags",
+        "title": "CoreLLM: Show Spend by Tags"
+      },
+      {
+        "command": "corellm.showKeyHealth",
+        "title": "CoreLLM: Show Key Health"
+      },
+      {
+        "command": "corellm.cycleDisplay",
+        "title": "CoreLLM: Cycle Status Bar Display"
       }
     ],
     "configuration": {
@@ -179,6 +207,78 @@
             "High-contrast theme override"
           ],
           "description": "Theme override for CoreLLM webview panels. Choose 'vscode' to follow your VS Code theme."
+        },
+        "corellm.showTeamSpend": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show team-level spend breakdown in the status bar"
+        },
+        "corellm.showGlobalSpend": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show global spend totals in the status bar"
+        },
+        "corellm.showModelSpend": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show per-model spend breakdown in panel views"
+        },
+        "corellm.cacheResults": {
+          "type": "boolean",
+          "default": true,
+          "description": "Cache API results to reduce network requests (cache refreshes on each poll)"
+        },
+        "corellm.spendAlertThreshold": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "description": "Alert threshold in USD. Show a notification when any single spend entry exceeds this amount. Set to 0 to disable."
+        },
+        "corellm.enableActivityMonitoring": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable proxy activity monitoring (additional API calls to /global/activity endpoints)"
+        },
+        "corellm.teamFilter": {
+          "type": "string",
+          "default": "",
+          "description": "Optional: Filter by specific team ID. When set, only data for this team is shown."
+        },
+        "corellm.defaultPanelTab": {
+          "type": "string",
+          "default": "overview",
+          "enum": [
+            "overview",
+            "global",
+            "teams",
+            "activity"
+          ],
+          "enumDescriptions": [
+            "Budget Overview (default)",
+            "Global Spend",
+            "Teams",
+            "Activity"
+          ],
+          "description": "Default tab to show when opening panels"
+        },
+        "corellm.statusBarDisplayMode": {
+          "type": "string",
+          "default": "cycle",
+          "enum": [
+            "cycle",
+            "remaining",
+            "spend",
+            "usage-bar",
+            "budget"
+          ],
+          "enumDescriptions": [
+            "Cycle through all modes on click",
+            "Show remaining budget",
+            "Show total spend",
+            "Show usage percentage with ASCII bar",
+            "Show max budget"
+          ],
+          "description": "Default status bar display mode"
         }
       }
     }

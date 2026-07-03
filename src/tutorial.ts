@@ -8,7 +8,7 @@ function escapeHtml(s: string): string {
 
 // ─── Tutorial / Getting Started Panel HTML ───────────────────────────────────
 
-const CURRENT_VERSION = '0.5.0';
+const CURRENT_VERSION = '0.6.0';
 
 export function buildTutorialHtml(activeTheme?: string): string {
   const theme = activeTheme || 'vscode';
@@ -196,6 +196,13 @@ export function buildTutorialHtml(activeTheme?: string): string {
       <tr><td><code>CoreLLM: Check for Updates</code></td><td>Check GitHub for newer versions</td><td>\u2014</td></tr>
       <tr><td><code>CoreLLM: About</code></td><td>Show version info</td><td>\u2014</td></tr>
       <tr class="cmd-highlight"><td><code>CoreLLM: Show Tutorial</code></td><td>Open this getting started guide</td><td>\u2014</td></tr>
+      <tr><td><code>CoreLLM: Show Global Spend</code></td><td>Global spend breakdown by key, model, and team</td><td>\u2014</td></tr>
+      <tr><td><code>CoreLLM: Show Teams</code></td><td>Team budgets, spend, members, and models</td><td>\u2014</td></tr>
+      <tr><td><code>CoreLLM: Show Activity</code></td><td>Proxy activity timeline with spend trend chart</td><td>\u2014</td></tr>
+      <tr><td><code>CoreLLM: Show Model Info</code></td><td>Model catalog with pricing, capabilities, and providers</td><td>\u2014</td></tr>
+      <tr><td><code>CoreLLM: Show Spend by Tags</code></td><td>Cost tracking broken down by custom spend tags</td><td>\u2014</td></tr>
+      <tr><td><code>CoreLLM: Show Key Health</code></td><td>Key health status, last access, and models</td><td>\u2014</td></tr>
+      <tr><td><code>CoreLLM: Cycle Status Bar Display</code></td><td>Cycle through remaining, usage bar, spend, and budget modes</td><td>\u2014</td></tr>
     </tbody>
   </table></div>
 </div>
@@ -223,6 +230,30 @@ export function buildTutorialHtml(activeTheme?: string): string {
 
   <h4>\u{1F511} Key List</h4>
   <p>View all API keys with their spend, max budget, usage percentage (with bar), user ID, and team ID. Keys over budget are highlighted with a red border. Search by alias, user, or team.</p>
+
+  <h4>\uD83C\uDF10 Global Spend</h4>
+  <p>Proxy-wide spend analytics broken down by three dimensions:</p>
+  <ul>
+    <li><strong>By Key</strong> \u2014 spend, tokens, and requests per API key</li>
+    <li><strong>By Model</strong> \u2014 spend, input/output tokens, and requests per model</li>
+    <li><strong>By Team</strong> \u2014 spend, tokens, and requests per team</li>
+  </ul>
+  <p>All views include SVG bar charts and sortable tables. Export to CSV.</p>
+
+  <h4>\u{1F465} Teams</h4>
+  <p>Team budget management dashboard. Each team card shows spend, max budget, remaining budget, usage percentage with progress bar, models, and members. Blocked teams are highlighted. Optionally filter by team via the <code>teamFilter</code> setting.</p>
+
+  <h4>\u{1F4DD} Activity</h4>
+  <p>Proxy activity timeline showing daily spend, tokens, and requests. Includes an SVG line chart for spend trends over the selected date range. Enable automatic updates via the <code>enableActivityMonitoring</code> setting.</p>
+
+  <h4>\u{1F4CA} Model Info</h4>
+  <p>Model catalog with pricing details: input/output cost per token, max tokens, provider, mode (chat/completion/embedding), and capability flags (function calling, vision). Searchable table with sortable columns. Export to CSV.</p>
+
+  <h4>\u{1F3F7} Spend by Tags</h4>
+  <p>Cost tracking broken down by custom spend tags. Shows tag name, spend, tokens, and requests with an SVG bar chart. Useful for cost allocation and chargebacks.</p>
+
+  <h4>\u{1F3AF} Key Health</h4>
+  <p>Key health monitoring showing status (healthy/unhealthy), spend, budget, last access time, and associated models.</p>
 </div>
 
 <!-- ─── Settings Reference ─────────────────────────────────────────────── -->
@@ -247,6 +278,15 @@ export function buildTutorialHtml(activeTheme?: string): string {
       <tr><td><code>reportCustomEnd</code></td><td><code>""</code></td><td>Custom end date (YYYY-MM-DD)</td></tr>
       <tr><td><code>updateCheckInterval</code></td><td><code>24</code></td><td>Hours between GitHub update checks</td></tr>
       <tr><td><code>webviewTheme</code></td><td><code>"vscode"</code></td><td>Theme override for panels (vscode/light/dark/hc)</td></tr>
+      <tr><td><code>showTeamSpend</code></td><td><code>false</code></td><td>Show team-level spend in the status bar</td></tr>
+      <tr><td><code>showGlobalSpend</code></td><td><code>false</code></td><td>Show global spend totals in the status bar</td></tr>
+      <tr><td><code>showModelSpend</code></td><td><code>false</code></td><td>Show per-model spend breakdown in panels</td></tr>
+      <tr><td><code>cacheResults</code></td><td><code>true</code></td><td>Cache API results to reduce network requests</td></tr>
+      <tr><td><code>spendAlertThreshold</code></td><td><code>0</code></td><td>Alert threshold in USD (0 = disabled)</td></tr>
+      <tr><td><code>enableActivityMonitoring</code></td><td><code>false</code></td><td>Auto-refresh activity monitoring panels</td></tr>
+      <tr><td><code>teamFilter</code></td><td><code>""</code></td><td>Filter data by specific team ID</td></tr>
+      <tr><td><code>defaultPanelTab</code></td><td><code>"overview"</code></td><td>Default panel tab (overview/global/teams/activity)</td></tr>
+      <tr><td><code>statusBarDisplayMode</code></td><td><code>"cycle"</code></td><td>Default display mode (cycle/remaining/spend/usage-bar/budget)</td></tr>
     </tbody>
   </table></div>
 </div>
@@ -319,8 +359,54 @@ export function buildTutorialHtml(activeTheme?: string): string {
         The extension works with any LiteLLM proxy. If you use a custom domain,
         just update <code>endpoint</code> to your proxy URL (e.g. <code>https://llm-proxy.mycompany.com</code>).
       </div>
+    </div>    <div class="tip-item">
+      <div class="tip-icon">\uD83C\uDF10</div>
+      <div class="tip-body">
+        <strong>Global Spend Analytics</strong><br>
+        Use <code>CoreLLM: Show Global Spend</code> to see spend broken down
+        by key, model, and team across the entire proxy.
+      </div>
     </div>
-  </div>
+    <div class="tip-item">
+      <div class="tip-icon">\u{1F465}</div>
+      <div class="tip-body">
+        <strong>Team Budget Tracking</strong><br>
+        Open <code>CoreLLM: Show Teams</code> to monitor budgets per team.
+        Set <code>teamFilter</code> to focus on a specific team.
+      </div>
+    </div>
+    <div class="tip-item">
+      <div class="tip-icon">\u{1F3F7}</div>
+      <div class="tip-body">
+        <strong>Tag-Based Cost Tracking</strong><br>
+        Use <code>CoreLLM: Show Spend by Tags</code> to allocate costs by
+        custom spend tags. Great for chargebacks and project tracking.
+      </div>
+    </div>
+    <div class="tip-item">
+      <div class="tip-icon">\u{1F4CA}</div>
+      <div class="tip-body">
+        <strong>Model Pricing Reference</strong><br>
+        <code>CoreLLM: Show Model Info</code> shows pricing per token,
+        max tokens, and capability flags for all models on your proxy.
+      </div>
+    </div>
+    <div class="tip-item">
+      <div class="tip-icon">\u{26A0}</div>
+      <div class="tip-body">
+        <strong>Spend Alerts</strong><br>
+        Set <code>spendAlertThreshold</code> to get notifications when a
+        single spend entry exceeds the specified amount.
+      </div>
+    </div>
+    <div class="tip-item">
+      <div class="tip-icon">\u{1F504}</div>
+      <div class="tip-body">
+        <strong>Status Bar Display Modes</strong><br>
+        Click the CoreLLM status bar item to cycle through display modes:
+        remaining budget, usage bar, total spend, and budget total.
+      </div>
+    </div>  </div>
 </div>
 
 <!-- ─── FAQ ────────────────────────────────────────────────────────────── -->
@@ -375,6 +461,31 @@ export function buildTutorialHtml(activeTheme?: string): string {
     the same way VS Code stores all extension settings. The <code>password</code> field is
     marked with <code>editPresentation: "password"</code> so it\u2019s masked in the UI.
     Keys are only sent to the LiteLLM proxy endpoint you configure.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)">\u25B6 What\u2019s the difference between Budget Overview and Global Spend?</div>
+    <div class="faq-a"><strong>Budget Overview</strong> focuses on a single key\u2019s spend, budget, and usage with provider budgets and model breakdowns. <strong>Global Spend</strong> shows proxy-wide analytics across all keys, models, and teams \u2014 great for admins managing the entire proxy.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)">\u25B6 How do I track costs by team?</div>
+    <div class="faq-a">Open <code>CoreLLM: Show Teams</code> from the Command Palette to see all teams, their budgets, and spend. You can also set <code>teamFilter</code> in settings to focus on a single team. Team costs are also visible in the Global Spend panel.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)">\u25B6 Can I get notified of high spend?</div>
+    <div class="faq-a">Yes. Set <code>spendAlertThreshold</code> to a USD value (e.g., <code>0.50</code>). You\u2019ll get a notification whenever a single spend entry exceeds that amount, with a link to view the full spend logs.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)">\u25B6 How do I see model pricing and capabilities?</div>
+    <div class="faq-a">Run <code>CoreLLM: Show Model Info</code> from the Command Palette. This shows a searchable table with input/output cost per token, max tokens, provider, mode, and capability flags (function calling, vision) for all models on your proxy.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)">\u25B6 What are spend tags and how do I use them?</div>
+    <div class="faq-a">Spend tags are custom labels you can attach to API requests in LiteLLM for cost allocation. Run <code>CoreLLM: Show Spend by Tags</code> to see spend broken down by tag. This is useful for chargebacks, project tracking, or departmental budgets.</div>
   </div>
 </div>
 

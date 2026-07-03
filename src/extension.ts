@@ -86,6 +86,142 @@ interface KeyListResponse {
   [key: string]: unknown;
 }
 
+interface GlobalSpendEntry {
+  api_key?: string;
+  key_alias?: string;
+  key_name?: string;
+  total_spend?: number;
+  total_tokens?: number;
+  count?: number;
+  [key: string]: unknown;
+}
+
+interface GlobalSpendKeysResponse {
+  keys?: GlobalSpendEntry[];
+  total_spend?: number;
+  [key: string]: unknown;
+}
+
+interface GlobalSpendModelEntry {
+  model?: string;
+  total_spend?: number;
+  total_tokens?: number;
+  input_tokens?: number;
+  output_tokens?: number;
+  count?: number;
+  [key: string]: unknown;
+}
+
+interface GlobalSpendModelsResponse {
+  models?: GlobalSpendModelEntry[];
+  total_spend?: number;
+  [key: string]: unknown;
+}
+
+interface GlobalSpendTeamEntry {
+  team_name?: string;
+  team_id?: string;
+  total_spend?: number;
+  total_tokens?: number;
+  count?: number;
+  [key: string]: unknown;
+}
+
+interface GlobalSpendTeamsResponse {
+  teams?: GlobalSpendTeamEntry[];
+  total_spend?: number;
+  [key: string]: unknown;
+}
+
+interface TeamInfoResponse {
+  team_id?: string;
+  team_alias?: string;
+  team_name?: string;
+  spend?: number;
+  max_budget?: number | null;
+  budget_duration?: string | null;
+  models?: string[];
+  members_with_roles?: Array<{ user_id?: string; role?: string }>;
+  metadata?: Record<string, unknown>;
+  blocked?: boolean;
+  [key: string]: unknown;
+}
+
+interface TeamListResponse {
+  teams?: TeamInfoResponse[];
+  total_count?: number;
+  [key: string]: unknown;
+}
+
+interface ModelInfoEntry {
+  id?: string;
+  model_name?: string;
+  model_info?: {
+    input_cost_per_token?: number;
+    output_cost_per_token?: number;
+    max_tokens?: number;
+    mode?: string;
+    litellm_provider?: string;
+    supports_function_calling?: boolean;
+    supports_vision?: boolean;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+interface ModelInfoResponse {
+  data?: ModelInfoEntry[];
+  [key: string]: unknown;
+}
+
+interface SpendTagEntry {
+  tag_name?: string;
+  total_spend?: number;
+  total_tokens?: number;
+  count?: number;
+  [key: string]: unknown;
+}
+
+interface SpendTagsResponse {
+  tags?: SpendTagEntry[];
+  total_spend?: number;
+  [key: string]: unknown;
+}
+
+interface ActivityEntry {
+  day?: string;
+  hour?: string;
+  api_key?: string;
+  total_spend?: number;
+  total_tokens?: number;
+  count?: number;
+  [key: string]: unknown;
+}
+
+interface ActivityResponse {
+  data?: ActivityEntry[];
+  total_spend?: number;
+  [key: string]: unknown;
+}
+
+interface KeyHealthResponse {
+  key?: string;
+  key_alias?: string;
+  key_name?: string;
+  health?: string;
+  last_accessed?: string;
+  spend?: number;
+  max_budget?: number | null;
+  models?: string[];
+  [key: string]: unknown;
+}
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  ttl: number;
+}
+
 interface StatusBarDisplay {
   text: string;
   tooltip: string;
@@ -128,6 +264,15 @@ interface ExtensionConfig {
   reportCustomEnd: string;
   updateCheckInterval: number;
   webviewTheme: string;
+  showTeamSpend: boolean;
+  showGlobalSpend: boolean;
+  showModelSpend: boolean;
+  cacheResults: boolean;
+  spendAlertThreshold: number;
+  enableActivityMonitoring: boolean;
+  teamFilter: string;
+  defaultPanelTab: string;
+  statusBarDisplayMode: string;
 }
 
 function getConfig(): ExtensionConfig {
@@ -148,6 +293,15 @@ function getConfig(): ExtensionConfig {
     reportCustomEnd: cfg.get<string>('reportCustomEnd', ''),
     updateCheckInterval: cfg.get<number>('updateCheckInterval', 24),
     webviewTheme: cfg.get<string>('webviewTheme', 'vscode'),
+    showTeamSpend: cfg.get<boolean>('showTeamSpend', false),
+    showGlobalSpend: cfg.get<boolean>('showGlobalSpend', false),
+    showModelSpend: cfg.get<boolean>('showModelSpend', false),
+    cacheResults: cfg.get<boolean>('cacheResults', true),
+    spendAlertThreshold: cfg.get<number>('spendAlertThreshold', 0),
+    enableActivityMonitoring: cfg.get<boolean>('enableActivityMonitoring', false),
+    teamFilter: cfg.get<string>('teamFilter', ''),
+    defaultPanelTab: cfg.get<string>('defaultPanelTab', 'overview'),
+    statusBarDisplayMode: cfg.get<string>('statusBarDisplayMode', 'cycle'),
   };
 }
 
@@ -178,9 +332,26 @@ class CoreLLMApiClient {
   private config: ExtensionConfig;
   private cachedJwtKey: string | undefined;
   private loginPromise: Promise<string | null> | undefined;
+  private cache: Map<string, CacheEntry<unknown>> = new Map();
 
   constructor(config: ExtensionConfig) {
     this.config = config;
+  }
+
+  /** Get or set cached data with a configurable TTL (default 30s). */
+  private getCache<T>(key: string): T | undefined {
+    const entry = this.cache.get(key);
+    if (!entry) return undefined;
+    if (Date.now() - entry.timestamp > entry.ttl) {
+      this.cache.delete(key);
+      return undefined;
+    }
+    return entry.data as T;
+  }
+
+  private setCache<T>(key: string, data: T, ttl = 30000): void {
+    if (!this.config.cacheResults) return;
+    this.cache.set(key, { data, timestamp: Date.now(), ttl });
   }
 
   /**
@@ -320,6 +491,112 @@ class CoreLLMApiClient {
   /** GET /user/daily/activity — daily spend/usage breakdown */
   async fetchUserDailyActivity(userId?: string): Promise<unknown> {
     return this.apiGet('/user/daily/activity', userId ? { user_id: userId } : undefined);
+  }
+
+  /** GET /global/spend/keys — spend breakdown by API key */
+  async fetchGlobalSpendKeys(startDate?: string, endDate?: string): Promise<GlobalSpendKeysResponse> {
+    const cacheKey = `globalSpendKeys_${startDate}_${endDate}`;
+    const cached = this.getCache<GlobalSpendKeysResponse>(cacheKey);
+    if (cached) return cached;
+    const params: Record<string, string> = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    const data = await this.apiGet<GlobalSpendKeysResponse>('/global/spend/keys', params);
+    this.setCache(cacheKey, data, 60000);
+    return data;
+  }
+
+  /** GET /global/spend/models — spend breakdown by model */
+  async fetchGlobalSpendModels(startDate?: string, endDate?: string): Promise<GlobalSpendModelsResponse> {
+    const cacheKey = `globalSpendModels_${startDate}_${endDate}`;
+    const cached = this.getCache<GlobalSpendModelsResponse>(cacheKey);
+    if (cached) return cached;
+    const params: Record<string, string> = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    const data = await this.apiGet<GlobalSpendModelsResponse>('/global/spend/models', params);
+    this.setCache(cacheKey, data, 60000);
+    return data;
+  }
+
+  /** GET /global/spend/teams — spend breakdown by team */
+  async fetchGlobalSpendTeams(startDate?: string, endDate?: string): Promise<GlobalSpendTeamsResponse> {
+    const cacheKey = `globalSpendTeams_${startDate}_${endDate}`;
+    const cached = this.getCache<GlobalSpendTeamsResponse>(cacheKey);
+    if (cached) return cached;
+    const params: Record<string, string> = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    if (this.config.teamFilter) params.team_id = this.config.teamFilter;
+    const data = await this.apiGet<GlobalSpendTeamsResponse>('/global/spend/teams', params);
+    this.setCache(cacheKey, data, 60000);
+    return data;
+  }
+
+  /** GET /team/list — list all teams */
+  async fetchTeamList(): Promise<TeamListResponse> {
+    const cacheKey = 'teamList';
+    const cached = this.getCache<TeamListResponse>(cacheKey);
+    if (cached) return cached;
+    const data = await this.apiGet<TeamListResponse>('/team/list');
+    this.setCache(cacheKey, data, 120000);
+    return data;
+  }
+
+  /** GET /team/info — detailed team info */
+  async fetchTeamInfo(teamId: string): Promise<TeamInfoResponse> {
+    return this.apiGet<TeamInfoResponse>('/team/info', { team_id: teamId });
+  }
+
+  /** GET /model/info — detailed model info with pricing */
+  async fetchModelInfo(): Promise<ModelInfoResponse> {
+    const cacheKey = 'modelInfo';
+    const cached = this.getCache<ModelInfoResponse>(cacheKey);
+    if (cached) return cached;
+    const data = await this.apiGet<ModelInfoResponse>('/model/info');
+    this.setCache(cacheKey, data, 300000);
+    return data;
+  }
+
+  /** GET /spend/tags — spend breakdown by tag */
+  async fetchSpendTags(startDate?: string, endDate?: string): Promise<SpendTagsResponse> {
+    const cacheKey = `spendTags_${startDate}_${endDate}`;
+    const cached = this.getCache<SpendTagsResponse>(cacheKey);
+    if (cached) return cached;
+    const params: Record<string, string> = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    const data = await this.apiGet<SpendTagsResponse>('/spend/tags', params);
+    this.setCache(cacheKey, data, 60000);
+    return data;
+  }
+
+  /** GET /global/activity — global proxy activity */
+  async fetchGlobalActivity(startDate?: string, endDate?: string): Promise<ActivityResponse> {
+    const cacheKey = `globalActivity_${startDate}_${endDate}`;
+    const cached = this.getCache<ActivityResponse>(cacheKey);
+    if (cached) return cached;
+    const params: Record<string, string> = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    const data = await this.apiGet<ActivityResponse>('/global/activity', params);
+    this.setCache(cacheKey, data, 60000);
+    return data;
+  }
+
+  /** GET /key/health — key/logging health status */
+  async fetchKeyHealth(): Promise<KeyHealthResponse> {
+    const cacheKey = 'keyHealth';
+    const cached = this.getCache<KeyHealthResponse>(cacheKey);
+    if (cached) return cached;
+    const data = await this.apiGet<KeyHealthResponse>('/key/health');
+    this.setCache(cacheKey, data, 60000);
+    return data;
+  }
+
+  /** Clear all cached data */
+  clearCache(): void {
+    this.cache.clear();
   }
 }
 
@@ -1188,6 +1465,597 @@ ${keys.length > 0 ? `
 </html>`;
 }
 
+// ─── Global Spend Panel HTML ─────────────────────────────────────────────────
+
+function buildGlobalSpendHtml(data: {
+  keys: GlobalSpendEntry[];
+  models: GlobalSpendModelEntry[];
+  teams: GlobalSpendTeamEntry[];
+  keyError: string | null;
+  modelError: string | null;
+  teamError: string | null;
+  activeTheme?: string;
+  dateRange?: string;
+}): string {
+  const { keys, models, teams, keyError, modelError, teamError, activeTheme, dateRange } = data;
+  const theme = activeTheme || 'vscode';
+  const themeOverride = buildThemeOverrides(theme);
+
+  const totalKeySpend = keys.reduce((s, k) => s + (k.total_spend ?? 0), 0);
+  const totalModelSpend = models.reduce((s, m) => s + (m.total_spend ?? 0), 0);
+  const totalTeamSpend = teams.reduce((s, t) => s + (t.total_spend ?? 0), 0);
+
+  const maxKeySpend = Math.max(...keys.map(k => k.total_spend ?? 0), 1);
+  const maxModelSpend = Math.max(...models.map(m => m.total_spend ?? 0), 1);
+  const maxTeamSpend = Math.max(...teams.map(t => t.total_spend ?? 0), 1);
+
+  const keyChart = keys.length > 0 ? svgHBarChart(
+    keys.slice(0, 15).map(k => ({ label: k.key_alias || k.key_name || k.api_key?.slice(0, 12) || 'unknown', value: k.total_spend ?? 0 })),
+    maxKeySpend, 340, 18, 3,
+  ) : '';
+
+  const modelChart = models.length > 0 ? svgHBarChart(
+    models.slice(0, 15).map(m => ({ label: m.model || 'unknown', value: m.total_spend ?? 0 })),
+    maxModelSpend, 340, 18, 3,
+  ) : '';
+
+  const teamChart = teams.length > 0 ? svgHBarChart(
+    teams.slice(0, 15).map(t => ({ label: t.team_name || t.team_id || 'unknown', value: t.total_spend ?? 0 })),
+    maxTeamSpend, 340, 18, 3,
+  ) : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>${COMMON_CSS}${themeOverride}</style>
+</head>
+<body>
+<h2>\uD83C\uDF10 CoreLLM Global Spend
+  <span class="title-actions">
+    <span class="theme-btn" id="themeBtn" title="Toggle theme">\u{1F3A8}</span>
+    <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">\u{1F4E5}</button>
+    <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">\u{1F504}</button>
+  </span>
+</h2>
+${dateRange ? `<p style="font-size:.82em;opacity:.6;margin:0 0 12px">${escapeHtml(dateRange)}</p>` : ''}
+
+<div class="summary-bar">
+  <div class="summary-item"><div class="summary-value">${usd(totalKeySpend, 4)}</div><div class="summary-label">Total Spend (Keys)</div></div>
+  <div class="summary-item"><div class="summary-value">${keys.length}</div><div class="summary-label">Active Keys</div></div>
+  <div class="summary-item"><div class="summary-value">${models.length}</div><div class="summary-label">Models Used</div></div>
+  <div class="summary-item"><div class="summary-value">${teams.length}</div><div class="summary-label">Teams</div></div>
+</div>
+
+<!-- Spend by Key -->
+<div class="card">
+  <h3>\u{1F511} Spend by Key <span class="badge">${keys.length}</span></h3>
+  ${keyError ? `<div class="error-box">\u26A0 ${escapeHtml(keyError)}</div>` : ''}
+  ${keyChart || '<div class="empty-state"><span class="empty-icon">\u{1F511}</span><div class="empty-text">No key spend data available.</div></div>'}
+  ${keys.length > 0 ? `
+  <div class="table-wrap"><table><thead><tr><th>Key</th><th>Spend</th><th>Tokens</th><th>Requests</th></tr></thead>
+  <tbody>${keys.slice(0, 20).map(k => `<tr>
+    <td><strong>${escapeHtml(k.key_alias || k.key_name || k.api_key?.slice(0, 16) || 'unknown')}</strong></td>
+    <td>${usd(k.total_spend, 4)}</td>
+    <td>${(k.total_tokens ?? 0).toLocaleString()}</td>
+    <td>${(k.count ?? 0).toLocaleString()}</td>
+  </tr>`).join('')}</tbody></table></div>` : ''}
+</div>
+
+<!-- Spend by Model -->
+<div class="card">
+  <h3>\u{1F4CA} Spend by Model <span class="badge">${models.length}</span></h3>
+  ${modelError ? `<div class="error-box">\u26A0 ${escapeHtml(modelError)}</div>` : ''}
+  ${modelChart || '<div class="empty-state"><span class="empty-icon">\u{1F4CA}</span><div class="empty-text">No model spend data available.</div></div>'}
+  ${models.length > 0 ? `
+  <div class="table-wrap"><table><thead><tr><th>Model</th><th>Spend</th><th>Input Tokens</th><th>Output Tokens</th><th>Requests</th></tr></thead>
+  <tbody>${models.slice(0, 20).map(m => `<tr>
+    <td><strong>${escapeHtml(m.model || 'unknown')}</strong></td>
+    <td>${usd(m.total_spend, 4)}</td>
+    <td>${(m.input_tokens ?? 0).toLocaleString()}</td>
+    <td>${(m.output_tokens ?? 0).toLocaleString()}</td>
+    <td>${(m.count ?? 0).toLocaleString()}</td>
+  </tr>`).join('')}</tbody></table></div>` : ''}
+</div>
+
+<!-- Spend by Team -->
+<div class="card">
+  <h3>\u{1F465} Spend by Team <span class="badge">${teams.length}</span></h3>
+  ${teamError ? `<div class="error-box">\u26A0 ${escapeHtml(teamError)}</div>` : ''}
+  ${teamChart || '<div class="empty-state"><span class="empty-icon">\u{1F465}</span><div class="empty-text">No team spend data available.</div></div>'}
+  ${teams.length > 0 ? `
+  <div class="table-wrap"><table><thead><tr><th>Team</th><th>Spend</th><th>Tokens</th><th>Requests</th></tr></thead>
+  <tbody>${teams.slice(0, 20).map(t => `<tr>
+    <td><strong>${escapeHtml(t.team_name || t.team_id || 'unknown')}</strong></td>
+    <td>${usd(t.total_spend, 4)}</td>
+    <td>${(t.total_tokens ?? 0).toLocaleString()}</td>
+    <td>${(t.count ?? 0).toLocaleString()}</td>
+  </tr>`).join('')}</tbody></table></div>` : ''}
+</div>
+
+<div class="footer">
+  <span>CoreLLM \u00B7 Global Spend</span>
+  <span>Keys: ${keys.length} \u00B7 Models: ${models.length} \u00B7 Teams: ${teams.length}</span>
+  <span>Total: ${usd(totalKeySpend, 4)}</span>
+</div>
+<script>
+(function() {
+  const vscode = acquireVsCodeApi();
+  const themes = ['vscode', 'light', 'dark', 'hc'];
+  let currentThemeIdx = themes.indexOf('${theme}');
+  if (currentThemeIdx < 0) currentThemeIdx = 0;
+  document.getElementById('themeBtn').addEventListener('click', function() {
+    currentThemeIdx = (currentThemeIdx + 1) % themes.length;
+    vscode.postMessage({ type: 'setTheme', theme: themes[currentThemeIdx] });
+  });
+  document.getElementById('refreshBtn').addEventListener('click', function() {
+    vscode.postMessage({ type: 'refresh' });
+  });
+  document.getElementById('exportCsvBtn').addEventListener('click', function() {
+    vscode.postMessage({ type: 'exportCsv' });
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') vscode.postMessage({ type: 'close' });
+  });
+})();
+</script>
+</body>
+</html>`;
+}
+
+// ─── Teams Panel HTML ────────────────────────────────────────────────────────
+
+function buildTeamsHtml(data: {
+  teams: TeamInfoResponse[];
+  globalTeamSpend: GlobalSpendTeamEntry[];
+  error: string | null;
+  spendError: string | null;
+  activeTheme?: string;
+}): string {
+  const { teams, globalTeamSpend, error, spendError, activeTheme } = data;
+  const theme = activeTheme || 'vscode';
+  const themeOverride = buildThemeOverrides(theme);
+  const totalSpend = teams.reduce((s, t) => s + (t.spend ?? 0), 0);
+  const totalBudget = teams.reduce((s, t) => s + (t.max_budget ?? 0), 0);
+
+  const spendMap = new Map<string, number>();
+  for (const gts of globalTeamSpend) {
+    const key = gts.team_id || gts.team_name || '';
+    spendMap.set(key, (spendMap.get(key) ?? 0) + (gts.total_spend ?? 0));
+  }
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>${COMMON_CSS}${themeOverride}</style>
+</head>
+<body>
+<h2>\u{1F465} CoreLLM Teams
+  <span class="title-actions">
+    <span class="theme-btn" id="themeBtn" title="Toggle theme">\u{1F3A8}</span>
+    <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">\u{1F4E5}</button>
+    <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">\u{1F504}</button>
+  </span>
+</h2>
+${error ? `<div class="error-box">\u26A0 ${escapeHtml(error)}</div>` : ''}
+
+<div class="summary-bar">
+  <div class="summary-item"><div class="summary-value">${teams.length}</div><div class="summary-label">Teams</div></div>
+  <div class="summary-item"><div class="summary-value">${usd(totalSpend, 4)}</div><div class="summary-label">Total Spend</div></div>
+  <div class="summary-item"><div class="summary-value">${usd(totalBudget)}</div><div class="summary-label">Total Budget</div></div>
+</div>
+
+${teams.length > 0 ? teams.map(team => {
+  const s = team.spend ?? 0;
+  const mb = team.max_budget;
+  const pct = mb && mb > 0 ? ((s / mb) * 100) : 0;
+  const barColor = pct > 80 ? 'red' : pct > 50 ? 'yellow' : 'green';
+  const gs = spendMap.get(team.team_id || '') ?? 0;
+  return `<div class="card"${team.blocked ? ' style="border-left:3px solid var(--vscode-errorForeground,#f14c4c)"' : ''}>
+    <h3>${escapeHtml(team.team_alias || team.team_name || team.team_id || 'Unnamed Team')}
+      ${team.blocked ? ' <span class="badge badge-error">BLOCKED</span>' : ''}
+    </h3>
+    <div class="grid">
+      <div class="stat"><div class="stat-value">${usd(s, 4)}</div><div class="stat-label">Spend</div></div>
+      <div class="stat"><div class="stat-value">${usd(mb)}</div><div class="stat-label">Max Budget</div></div>
+      <div class="stat"><div class="stat-value ${mb && mb > 0 ? (pct > 80 ? 'err' : pct > 50 ? 'warn' : 'ok') : ''}">${mb && mb > 0 ? (mb - s).toFixed(2) : '\u221E'}</div><div class="stat-label">Remaining</div></div>
+      <div class="stat"><div class="stat-value">${mb && mb > 0 ? pct.toFixed(1) + '%' : '\u2014'}</div><div class="stat-label">Used</div></div>
+    </div>
+    ${mb && mb > 0 ? `<div class="bar-container"><div class="bar-fill ${barColor}" style="width:${Math.min(100, pct)}%"></div></div>` : ''}
+    ${gs > 0 ? `<p style="font-size:.82em;opacity:.65;margin-top:4px">\uD83D\uDCCA Global spend (recent): ${usd(gs, 4)}</p>` : ''}
+    ${team.models && team.models.length > 0 ? `<p style="font-size:.82em;opacity:.65;margin-top:4px">\u{1F4CB} Models: ${team.models.slice(0, 8).join(', ')}${team.models.length > 8 ? ` +${team.models.length - 8}` : ''}</p>` : ''}
+    ${team.members_with_roles && team.members_with_roles.length > 0 ? `<p style="font-size:.82em;opacity:.65;margin-top:2px">\u{1F465} Members: ${team.members_with_roles.map(m => m.user_id).filter(Boolean).join(', ')}</p>` : ''}
+  </div>`;
+}).join('\n') : '<div class="empty-state"><span class="empty-icon">\u{1F465}</span><div class="empty-text">No teams found.</div></div>'}
+
+<div class="footer">
+  <span>CoreLLM \u00B7 ${teams.length} team(s)</span>
+  <span>Spend: ${usd(totalSpend, 4)}</span>
+  <span>Budget: ${usd(totalBudget)}</span>
+</div>
+<script>
+(function() {
+  const vscode = acquireVsCodeApi();
+  const themes = ['vscode', 'light', 'dark', 'hc'];
+  let currentThemeIdx = themes.indexOf('${theme}');
+  if (currentThemeIdx < 0) currentThemeIdx = 0;
+  document.getElementById('themeBtn').addEventListener('click', function() {
+    currentThemeIdx = (currentThemeIdx + 1) % themes.length;
+    vscode.postMessage({ type: 'setTheme', theme: themes[currentThemeIdx] });
+  });
+  document.getElementById('refreshBtn').addEventListener('click', function() {
+    vscode.postMessage({ type: 'refresh' });
+  });
+  document.getElementById('exportCsvBtn').addEventListener('click', function() {
+    vscode.postMessage({ type: 'exportCsv' });
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') vscode.postMessage({ type: 'close' });
+  });
+})();
+</script>
+</body>
+</html>`;
+}
+
+// ─── Activity Panel HTML ─────────────────────────────────────────────────────
+
+function buildActivityHtml(data: {
+  activity: ActivityEntry[];
+  error: string | null;
+  activeTheme?: string;
+}): string {
+  const { activity, error, activeTheme } = data;
+  const theme = activeTheme || 'vscode';
+  const themeOverride = buildThemeOverrides(theme);
+  const totalSpend = activity.reduce((s, a) => s + (a.total_spend ?? 0), 0);
+  const totalTokens = activity.reduce((s, a) => s + (a.total_tokens ?? 0), 0);
+  const totalReqs = activity.reduce((s, a) => s + (a.count ?? 0), 0);
+
+  // Daily aggregation
+  const dayMap = new Map<string, { spend: number; tokens: number; count: number }>();
+  for (const a of activity) {
+    const day = a.day || a.hour?.slice(0, 10) || 'unknown';
+    const existing = dayMap.get(day) || { spend: 0, tokens: 0, count: 0 };
+    existing.spend += a.total_spend ?? 0;
+    existing.tokens += a.total_tokens ?? 0;
+    existing.count += a.count ?? 0;
+    dayMap.set(day, existing);
+  }
+  const dailyData = [...dayMap.entries()].map(([label, v]) => ({ label, value: v.spend })).sort((a, b) => a.label.localeCompare(b.label));
+  const lineChart = dailyData.length >= 2 ? svgLineChart(dailyData, 380, 120) : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>${COMMON_CSS}${themeOverride}</style>
+</head>
+<body>
+<h2>\u{1F4DD} CoreLLM Activity
+  <span class="title-actions">
+    <span class="theme-btn" id="themeBtn" title="Toggle theme">\u{1F3A8}</span>
+    <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">\u{1F4E5}</button>
+    <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">\u{1F504}</button>
+  </span>
+</h2>
+${error ? `<div class="error-box">\u26A0 ${escapeHtml(error)}</div>` : ''}
+
+<div class="summary-bar">
+  <div class="summary-item"><div class="summary-value">${usd(totalSpend, 4)}</div><div class="summary-label">Total Spend</div></div>
+  <div class="summary-item"><div class="summary-value">${totalReqs.toLocaleString()}</div><div class="summary-label">Requests</div></div>
+  <div class="summary-item"><div class="summary-value">${totalTokens.toLocaleString()}</div><div class="summary-label">Tokens</div></div>
+  <div class="summary-item"><div class="summary-value">${activity.length}</div><div class="summary-label">Entries</div></div>
+</div>
+
+${lineChart ? `<div class="card">
+  <h3>\uD83D\uDCC8 Activity Trend</h3>
+  <div class="chart-row" style="flex-direction:column;align-items:stretch">${lineChart}</div>
+</div>` : ''}
+
+<div class="card">
+  <h3>\u{1F4CB} Recent Activity</h3>
+  ${activity.length > 0 ? `
+  <div class="table-wrap"><table><thead><tr><th>Date</th><th>Spend</th><th>Tokens</th><th>Requests</th></tr></thead>
+  <tbody>${activity.slice(0, 50).map(a => {
+    const dateStr = a.day || a.hour || '';
+    const d = dateStr ? new Date(dateStr) : null;
+    return `<tr>
+      <td>${d ? d.toLocaleDateString() : escapeHtml(dateStr)}${a.hour ? ' <span class="rel-time">' + a.hour.slice(11, 16) + '</span>' : ''}</td>
+      <td>${usd(a.total_spend, 6)}</td>
+      <td>${(a.total_tokens ?? 0).toLocaleString()}</td>
+      <td>${(a.count ?? 0).toLocaleString()}</td>
+    </tr>`;
+  }).join('')}</tbody></table></div>` : '<div class="empty-state"><span class="empty-icon">\u{1F4DD}</span><div class="empty-text">No activity data available.</div></div>'}
+</div>
+
+<div class="footer">
+  <span>CoreLLM \u00B7 Activity</span>
+  <span>Spend: ${usd(totalSpend, 4)}</span>
+  <span>${totalReqs.toLocaleString()} requests</span>
+</div>
+<script>
+(function() {
+  const vscode = acquireVsCodeApi();
+  const themes = ['vscode', 'light', 'dark', 'hc'];
+  let currentThemeIdx = themes.indexOf('${theme}');
+  if (currentThemeIdx < 0) currentThemeIdx = 0;
+  document.getElementById('themeBtn').addEventListener('click', function() {
+    currentThemeIdx = (currentThemeIdx + 1) % themes.length;
+    vscode.postMessage({ type: 'setTheme', theme: themes[currentThemeIdx] });
+  });
+  document.getElementById('refreshBtn').addEventListener('click', function() {
+    vscode.postMessage({ type: 'refresh' });
+  });
+  document.getElementById('exportCsvBtn').addEventListener('click', function() {
+    vscode.postMessage({ type: 'exportCsv' });
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') vscode.postMessage({ type: 'close' });
+  });
+})();
+</script>
+</body>
+</html>`;
+}
+
+// ─── Spend by Tags Panel HTML ────────────────────────────────────────────────
+
+function buildSpendTagsHtml(data: {
+  tags: SpendTagEntry[];
+  error: string | null;
+  activeTheme?: string;
+}): string {
+  const { tags, error, activeTheme } = data;
+  const theme = activeTheme || 'vscode';
+  const themeOverride = buildThemeOverrides(theme);
+  const totalSpend = tags.reduce((s, t) => s + (t.total_spend ?? 0), 0);
+  const maxVal = Math.max(...tags.map(t => t.total_spend ?? 0), 1);
+  const chartData = tags.length > 0 ? svgHBarChart(
+    tags.slice(0, 15).map(t => ({ label: t.tag_name || 'unknown', value: t.total_spend ?? 0 })),
+    maxVal, 340, 18, 3,
+  ) : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>${COMMON_CSS}${themeOverride}</style>
+</head>
+<body>
+<h2>\u{1F3F7} CoreLLM Spend by Tags
+  <span class="title-actions">
+    <span class="theme-btn" id="themeBtn" title="Toggle theme">\u{1F3A8}</span>
+    <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">\u{1F4E5}</button>
+    <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">\u{1F504}</button>
+  </span>
+</h2>
+${error ? `<div class="error-box">\u26A0 ${escapeHtml(error)}</div>` : ''}
+
+<div class="summary-bar">
+  <div class="summary-item"><div class="summary-value">${tags.length}</div><div class="summary-label">Tags</div></div>
+  <div class="summary-item"><div class="summary-value">${usd(totalSpend, 4)}</div><div class="summary-label">Total Spend</div></div>
+</div>
+
+<div class="card">
+  <h3>\u{1F3F7} Tag Breakdown</h3>
+  ${chartData || '<div class="empty-state"><span class="empty-icon">\u{1F3F7}</span><div class="empty-text">No tag spend data available.</div></div>'}
+  ${tags.length > 0 ? `
+  <div class="table-wrap"><table><thead><tr><th>Tag</th><th>Spend</th><th>Tokens</th><th>Requests</th></tr></thead>
+  <tbody>${tags.map(t => `<tr>
+    <td><span class="badge">${escapeHtml(t.tag_name || 'unknown')}</span></td>
+    <td>${usd(t.total_spend, 4)}</td>
+    <td>${(t.total_tokens ?? 0).toLocaleString()}</td>
+    <td>${(t.count ?? 0).toLocaleString()}</td>
+  </tr>`).join('')}</tbody></table></div>` : ''}
+</div>
+
+<div class="footer">
+  <span>CoreLLM \u00B7 ${tags.length} tag(s)</span>
+  <span>Total: ${usd(totalSpend, 4)}</span>
+</div>
+<script>
+(function() {
+  const vscode = acquireVsCodeApi();
+  const themes = ['vscode', 'light', 'dark', 'hc'];
+  let currentThemeIdx = themes.indexOf('${theme}');
+  if (currentThemeIdx < 0) currentThemeIdx = 0;
+  document.getElementById('themeBtn').addEventListener('click', function() {
+    currentThemeIdx = (currentThemeIdx + 1) % themes.length;
+    vscode.postMessage({ type: 'setTheme', theme: themes[currentThemeIdx] });
+  });
+  document.getElementById('refreshBtn').addEventListener('click', function() {
+    vscode.postMessage({ type: 'refresh' });
+  });
+  document.getElementById('exportCsvBtn').addEventListener('click', function() {
+    vscode.postMessage({ type: 'exportCsv' });
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') vscode.postMessage({ type: 'close' });
+  });
+})();
+</script>
+</body>
+</html>`;
+}
+
+// ─── Model Info Panel HTML ───────────────────────────────────────────────────
+
+function buildModelInfoHtml(data: {
+  models: ModelInfoEntry[];
+  error: string | null;
+  activeTheme?: string;
+}): string {
+  const { models, error, activeTheme } = data;
+  const theme = activeTheme || 'vscode';
+  const themeOverride = buildThemeOverrides(theme);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>${COMMON_CSS}${themeOverride}</style>
+</head>
+<body>
+<h2>\u{1F4CA} CoreLLM Model Info
+  <span class="title-actions">
+    <span class="theme-btn" id="themeBtn" title="Toggle theme">\u{1F3A8}</span>
+    <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">\u{1F4E5}</button>
+    <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">\u{1F504}</button>
+  </span>
+</h2>
+${error ? `<div class="error-box">\u26A0 ${escapeHtml(error)}</div>` : ''}
+
+<div class="summary-bar">
+  <div class="summary-item"><div class="summary-value">${models.length}</div><div class="summary-label">Models</div></div>
+</div>
+
+<div class="card">
+  <h3>\u{1F4CA} Model Catalog</h3>
+  ${models.length > 0 ? `
+  <div class="search-bar">
+    <input type="text" class="search-input" id="modelSearch" placeholder="\u{1F50D} Filter models\u2026">
+    <span class="match-count" id="matchCount">Showing ${models.length}</span>
+  </div>
+  <div class="table-wrap"><table id="modelTable"><thead><tr><th>Model</th><th>Provider</th><th>Mode</th><th>Input $/tok</th><th>Output $/tok</th><th>Max Tokens</th><th>Fn Calls</th><th>Vision</th></tr></thead>
+  <tbody>${models.map((m, idx) => {
+    const info = m.model_info || {};
+    return `<tr data-idx="${idx}" data-name="${escapeHtml((m.model_name || m.id || '').toLowerCase())}" data-provider="${escapeHtml((info.litellm_provider || '').toLowerCase())}">
+      <td><strong>${escapeHtml(m.model_name || m.id || 'unknown')}</strong></td>
+      <td>${info.litellm_provider ? `<span class="badge">${escapeHtml(info.litellm_provider)}</span>` : '\u2014'}</td>
+      <td>${info.mode ? `<span class="badge">${escapeHtml(info.mode)}</span>` : '\u2014'}</td>
+      <td>${info.input_cost_per_token != null ? '$' + info.input_cost_per_token.toExponential(2) : '\u2014'}</td>
+      <td>${info.output_cost_per_token != null ? '$' + info.output_cost_per_token.toExponential(2) : '\u2014'}</td>
+      <td>${info.max_tokens ? info.max_tokens.toLocaleString() : '\u2014'}</td>
+      <td>${info.supports_function_calling ? '\u2705' : '\u274C'}</td>
+      <td>${info.supports_vision ? '\u2705' : '\u274C'}</td>
+    </tr>`;
+  }).join('')}</tbody></table></div>` : '<div class="empty-state"><span class="empty-icon">\u{1F4CA}</span><div class="empty-text">No model info available.</div></div>'}
+</div>
+
+<div class="footer">
+  <span>CoreLLM \u00B7 ${models.length} model(s)</span>
+</div>
+<script>
+(function() {
+  const vscode = acquireVsCodeApi();
+  const themes = ['vscode', 'light', 'dark', 'hc'];
+  let currentThemeIdx = themes.indexOf('${theme}');
+  if (currentThemeIdx < 0) currentThemeIdx = 0;
+  document.getElementById('themeBtn').addEventListener('click', function() {
+    currentThemeIdx = (currentThemeIdx + 1) % themes.length;
+    vscode.postMessage({ type: 'setTheme', theme: themes[currentThemeIdx] });
+  });
+  document.getElementById('refreshBtn').addEventListener('click', function() {
+    vscode.postMessage({ type: 'refresh' });
+  });
+  document.getElementById('exportCsvBtn').addEventListener('click', function() {
+    vscode.postMessage({ type: 'exportCsv' });
+  });
+
+  const input = document.getElementById('modelSearch');
+  const table = document.getElementById('modelTable');
+  const matchCount = document.getElementById('matchCount');
+  if (input && table) {
+    input.addEventListener('input', function() {
+      const q = this.value.toLowerCase().trim();
+      const rows = table.querySelectorAll('tbody tr');
+      let visible = 0;
+      rows.forEach(row => {
+        const name = row.getAttribute('data-name') || '';
+        const provider = row.getAttribute('data-provider') || '';
+        const txt = name + ' ' + provider + ' ' + row.textContent.toLowerCase();
+        const match = !q || txt.includes(q);
+        row.style.display = match ? '' : 'none';
+        if (match) visible++;
+      });
+      matchCount.textContent = q ? 'Showing ' + visible + ' of ' + rows.length : 'Showing ' + rows.length;
+    });
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') vscode.postMessage({ type: 'close' });
+  });
+})();
+</script>
+</body>
+</html>`;
+}
+
+// ─── Key Health Panel HTML ───────────────────────────────────────────────────
+
+function buildKeyHealthHtml(data: {
+  health: KeyHealthResponse[];
+  error: string | null;
+  activeTheme?: string;
+}): string {
+  const { health, error, activeTheme } = data;
+  const theme = activeTheme || 'vscode';
+  const themeOverride = buildThemeOverrides(theme);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>${COMMON_CSS}${themeOverride}</style>
+</head>
+<body>
+<h2>\u{1F3AF} CoreLLM Key Health
+  <span class="title-actions">
+    <span class="theme-btn" id="themeBtn" title="Toggle theme">\u{1F3A8}</span>
+    <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">\u{1F504}</button>
+  </span>
+</h2>
+${error ? `<div class="error-box">\u26A0 ${escapeHtml(error)}</div>` : ''}
+
+${health.length > 0 ? health.map(k => {
+  const isHealthy = k.health === 'healthy';
+  return `<div class="card">
+    <h3>${escapeHtml(k.key_alias || k.key_name || k.key?.slice(0, 20) || 'Unknown Key')}
+      <span class="badge ${isHealthy ? 'badge-success' : 'badge-error'}">${escapeHtml(k.health || 'unknown')}</span>
+    </h3>
+    <div class="grid">
+      <div class="stat"><div class="stat-value">${usd(k.spend, 4)}</div><div class="stat-label">Spend</div></div>
+      <div class="stat"><div class="stat-value">${usd(k.max_budget)}</div><div class="stat-label">Max Budget</div></div>
+    </div>
+    ${k.last_accessed ? `<p style="font-size:.82em;opacity:.65;margin-top:4px">\u{1F4C5} Last accessed: ${new Date(k.last_accessed).toLocaleString()}</p>` : ''}
+    ${k.models && k.models.length > 0 ? `<p style="font-size:.82em;opacity:.65">\u{1F4CB} Models: ${k.models.join(', ')}</p>` : ''}
+  </div>`;
+}).join('\n') : '<div class="empty-state"><span class="empty-icon">\u{1F3AF}</span><div class="empty-text">No key health data available.</div></div>'}
+
+<div class="footer">
+  <span>CoreLLM \u00B7 Key Health</span>
+  <span>${health.length} key(s)</span>
+</div>
+<script>
+(function() {
+  const vscode = acquireVsCodeApi();
+  const themes = ['vscode', 'light', 'dark', 'hc'];
+  let currentThemeIdx = themes.indexOf('${theme}');
+  if (currentThemeIdx < 0) currentThemeIdx = 0;
+  document.getElementById('themeBtn').addEventListener('click', function() {
+    currentThemeIdx = (currentThemeIdx + 1) % themes.length;
+    vscode.postMessage({ type: 'setTheme', theme: themes[currentThemeIdx] });
+  });
+  document.getElementById('refreshBtn').addEventListener('click', function() {
+    vscode.postMessage({ type: 'refresh' });
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') vscode.postMessage({ type: 'close' });
+  });
+})();
+</script>
+</body>
+</html>`;
+}
+
 // ─── Status Bar Manager ──────────────────────────────────────────────────────
 
 class BalanceStatusBarManager {
@@ -1200,6 +2068,12 @@ class BalanceStatusBarManager {
   private spendLogsPanel: vscode.WebviewPanel | undefined;
   private keyListPanel: vscode.WebviewPanel | undefined;
   private tutorialPanel: vscode.WebviewPanel | undefined;
+  private globalSpendPanel: vscode.WebviewPanel | undefined;
+  private teamsPanel: vscode.WebviewPanel | undefined;
+  private activityPanel: vscode.WebviewPanel | undefined;
+  private modelInfoPanel: vscode.WebviewPanel | undefined;
+  private spendTagsPanel: vscode.WebviewPanel | undefined;
+  private keyHealthPanel: vscode.WebviewPanel | undefined;
 
   // ── Display Cycling ──────────────────────────────────────────────────
   private displayCycleIndex = 0;
@@ -1261,7 +2135,13 @@ class BalanceStatusBarManager {
           }
         });
       }),
-      vscode.commands.registerCommand('corellm.showTutorial', () => this.openTutorial())
+      vscode.commands.registerCommand('corellm.showTutorial', () => this.openTutorial()),
+      vscode.commands.registerCommand('corellm.showGlobalSpend', () => this.openGlobalSpend()),
+      vscode.commands.registerCommand('corellm.showTeams', () => this.openTeams()),
+      vscode.commands.registerCommand('corellm.showActivity', () => this.openActivity()),
+      vscode.commands.registerCommand('corellm.showModelInfo', () => this.openModelInfo()),
+      vscode.commands.registerCommand('corellm.showSpendByTags', () => this.openSpendTags()),
+      vscode.commands.registerCommand('corellm.showKeyHealth', () => this.openKeyHealth())
     );
   }
 
@@ -1271,6 +2151,7 @@ class BalanceStatusBarManager {
         if (e.affectsConfiguration('corellm')) {
           this.config = getConfig();
           this.client = new CoreLLMApiClient(this.config);
+          this.setInitialDisplayMode();
           this.stopAutoRefresh();
           if (this.config.refreshInterval > 0) this.startAutoRefresh();
           this.refresh();
@@ -1585,6 +2466,386 @@ class BalanceStatusBarManager {
     this.tutorialPanel.webview.html = buildTutorialHtml(this.activeTheme);
   }
 
+  // ── Global Spend Panel ──────────────────────────────────────────────────
+
+  private async openGlobalSpend(): Promise<void> {
+    if (this.globalSpendPanel) { this.globalSpendPanel.reveal(vscode.ViewColumn.Beside); return; }
+    this.globalSpendPanel = vscode.window.createWebviewPanel(
+      'corellmGlobalSpend', 'CoreLLM Global Spend', vscode.ViewColumn.Beside, { enableScripts: true }
+    );
+    this.globalSpendPanel.onDidDispose(() => { this.globalSpendPanel = undefined; });
+    this.globalSpendPanel.webview.onDidReceiveMessage((msg) => {
+      switch (msg.type) {
+        case 'refresh': this.refreshGlobalSpend(); break;
+        case 'exportCsv': this.exportGlobalSpendCsv(); break;
+        case 'setTheme':
+          this.activeTheme = msg.theme;
+          this.refreshAllPanels();
+          break;
+        case 'close': this.globalSpendPanel?.dispose(); break;
+      }
+    });
+    this.globalSpendPanel.webview.html = buildLoadingHtml('Loading Global Spend\u2026', true);
+    await this.refreshGlobalSpend();
+  }
+
+  private async refreshGlobalSpend(): Promise<void> {
+    if (!this.globalSpendPanel) return;
+    const dr = getDateRange(this.config.reportDuration, this.config.reportCustomStart, this.config.reportCustomEnd);
+    let keys: GlobalSpendEntry[] = [];
+    let models: GlobalSpendModelEntry[] = [];
+    let teams: GlobalSpendTeamEntry[] = [];
+    let keyError: string | null = null;
+    let modelError: string | null = null;
+    let teamError: string | null = null;
+
+    const results = await Promise.allSettled([
+      this.client.fetchGlobalSpendKeys(dr.start, dr.end),
+      this.client.fetchGlobalSpendModels(dr.start, dr.end),
+      this.client.fetchGlobalSpendTeams(dr.start, dr.end),
+    ]);
+    if (results[0].status === 'fulfilled') keys = results[0].value.keys ?? [];
+    else keyError = (results[0].reason as Error)?.message ?? 'Unknown error';
+    if (results[1].status === 'fulfilled') models = results[1].value.models ?? [];
+    else modelError = (results[1].reason as Error)?.message ?? 'Unknown error';
+    if (results[2].status === 'fulfilled') teams = results[2].value.teams ?? [];
+    else teamError = (results[2].reason as Error)?.message ?? 'Unknown error';
+
+    if (this.globalSpendPanel) {
+      this.globalSpendPanel.webview.html = buildGlobalSpendHtml({
+        keys, models, teams, keyError, modelError, teamError,
+        activeTheme: this.activeTheme,
+        dateRange: `${dr.start} \u2013 ${dr.end}`,
+      });
+    }
+  }
+
+  private async exportGlobalSpendCsv(): Promise<void> {
+    if (!this.globalSpendPanel) return;
+    const dr = getDateRange(this.config.reportDuration, this.config.reportCustomStart, this.config.reportCustomEnd);
+    let keys: GlobalSpendEntry[] = [];
+    let models: GlobalSpendModelEntry[] = [];
+    let teams: GlobalSpendTeamEntry[] = [];
+    try {
+      const r = await Promise.allSettled([
+        this.client.fetchGlobalSpendKeys(dr.start, dr.end),
+        this.client.fetchGlobalSpendModels(dr.start, dr.end),
+        this.client.fetchGlobalSpendTeams(dr.start, dr.end),
+      ]);
+      if (r[0].status === 'fulfilled') keys = r[0].value.keys ?? [];
+      if (r[1].status === 'fulfilled') models = r[1].value.models ?? [];
+      if (r[2].status === 'fulfilled') teams = r[2].value.teams ?? [];
+    } catch { /* ignore */ }
+    const rows: string[][] = [];
+    rows.push(['--- Spend by Key ---', '']);
+    keys.forEach(k => rows.push([k.key_alias || k.api_key || '', String(k.total_spend ?? 0), String(k.total_tokens ?? 0), String(k.count ?? 0)]));
+    rows.push(['', '']);
+    rows.push(['--- Spend by Model ---', '']);
+    models.forEach(m => rows.push([m.model || '', String(m.total_spend ?? 0), String(m.input_tokens ?? 0), String(m.output_tokens ?? 0), String(m.count ?? 0)]));
+    rows.push(['', '']);
+    rows.push(['--- Spend by Team ---', '']);
+    teams.forEach(t => rows.push([t.team_name || t.team_id || '', String(t.total_spend ?? 0), String(t.total_tokens ?? 0), String(t.count ?? 0)]));
+    const csv = ['Key/Model/Team,Spend,Tokens,Count', ...rows.map(r => r.map(c => csvCell(c)).join(','))].join('\n');
+    const doc = await vscode.workspace.openTextDocument({ content: csv, language: 'csv' });
+    await vscode.window.showTextDocument(doc);
+    vscode.window.showInformationMessage('Global spend exported as CSV.');
+  }
+
+  // ── Teams Panel ─────────────────────────────────────────────────────────
+
+  private async openTeams(): Promise<void> {
+    if (this.teamsPanel) { this.teamsPanel.reveal(vscode.ViewColumn.Beside); return; }
+    this.teamsPanel = vscode.window.createWebviewPanel(
+      'corellmTeams', 'CoreLLM Teams', vscode.ViewColumn.Beside, { enableScripts: true }
+    );
+    this.teamsPanel.onDidDispose(() => { this.teamsPanel = undefined; });
+    this.teamsPanel.webview.onDidReceiveMessage((msg) => {
+      switch (msg.type) {
+        case 'refresh': this.refreshTeamsPanel(); break;
+        case 'exportCsv': this.exportTeamsCsv(); break;
+        case 'setTheme':
+          this.activeTheme = msg.theme;
+          this.refreshAllPanels();
+          break;
+        case 'close': this.teamsPanel?.dispose(); break;
+      }
+    });
+    this.teamsPanel.webview.html = buildLoadingHtml('Loading Teams\u2026', true);
+    await this.refreshTeamsPanel();
+  }
+
+  private async refreshTeamsPanel(): Promise<void> {
+    if (!this.teamsPanel) return;
+    let teams: TeamInfoResponse[] = [];
+    let globalTeamSpend: GlobalSpendTeamEntry[] = [];
+    let error: string | null = null;
+    let spendError: string | null = null;
+    try { const r = await this.client.fetchTeamList(); teams = r.teams ?? []; } catch (err) { error = String(err); }
+    try {
+      const dr = getDateRange(this.config.reportDuration, this.config.reportCustomStart, this.config.reportCustomEnd);
+      const r = await this.client.fetchGlobalSpendTeams(dr.start, dr.end);
+      globalTeamSpend = r.teams ?? [];
+    } catch (err) { spendError = String(err); }
+    if (this.teamsPanel) {
+      this.teamsPanel.webview.html = buildTeamsHtml({ teams, globalTeamSpend, error, spendError, activeTheme: this.activeTheme });
+    }
+  }
+
+  private async exportTeamsCsv(): Promise<void> {
+    if (!this.teamsPanel) return;
+    let teams: TeamInfoResponse[] = [];
+    try { const r = await this.client.fetchTeamList(); teams = r.teams ?? []; } catch { /* ignore */ }
+    const headers = ['Team', 'Spend', 'Max Budget', 'Used %', 'Blocked'];
+    const rows = teams.map(t => [
+      t.team_alias || t.team_name || t.team_id || '',
+      String(t.spend ?? 0),
+      String(t.max_budget ?? ''),
+      t.max_budget && t.max_budget > 0 ? String(((t.spend ?? 0) / t.max_budget) * 100) : '',
+      String(t.blocked ?? false),
+    ].map(c => csvCell(c)));
+    const csv = [headers.join(','), ...rows.join('\n')].join('\n');
+    const doc = await vscode.workspace.openTextDocument({ content: csv, language: 'csv' });
+    await vscode.window.showTextDocument(doc);
+    vscode.window.showInformationMessage('Teams exported as CSV.');
+  }
+
+  // ── Activity Panel ──────────────────────────────────────────────────────
+
+  private async openActivity(): Promise<void> {
+    if (this.activityPanel) { this.activityPanel.reveal(vscode.ViewColumn.Beside); return; }
+    this.activityPanel = vscode.window.createWebviewPanel(
+      'corellmActivity', 'CoreLLM Activity', vscode.ViewColumn.Beside, { enableScripts: true }
+    );
+    this.activityPanel.onDidDispose(() => { this.activityPanel = undefined; });
+    this.activityPanel.webview.onDidReceiveMessage((msg) => {
+      switch (msg.type) {
+        case 'refresh': this.refreshActivityPanel(); break;
+        case 'exportCsv': this.exportActivityCsv(); break;
+        case 'setTheme':
+          this.activeTheme = msg.theme;
+          this.refreshAllPanels();
+          break;
+        case 'close': this.activityPanel?.dispose(); break;
+      }
+    });
+    this.activityPanel.webview.html = buildLoadingHtml('Loading Activity\u2026', true);
+    await this.refreshActivityPanel();
+  }
+
+  private async refreshActivityPanel(): Promise<void> {
+    if (!this.activityPanel) return;
+    const dr = getDateRange(this.config.reportDuration, this.config.reportCustomStart, this.config.reportCustomEnd);
+    let activity: ActivityEntry[] = [];
+    let error: string | null = null;
+    try { const r = await this.client.fetchGlobalActivity(dr.start, dr.end); activity = r.data ?? []; } catch (err) { error = String(err); }
+    if (this.activityPanel) {
+      this.activityPanel.webview.html = buildActivityHtml({ activity, error, activeTheme: this.activeTheme });
+    }
+  }
+
+  private async exportActivityCsv(): Promise<void> {
+    if (!this.activityPanel) return;
+    let activity: ActivityEntry[] = [];
+    try {
+      const dr = getDateRange(this.config.reportDuration, this.config.reportCustomStart, this.config.reportCustomEnd);
+      const r = await this.client.fetchGlobalActivity(dr.start, dr.end);
+      activity = r.data ?? [];
+    } catch { /* ignore */ }
+    if (activity.length === 0) { vscode.window.showWarningMessage('No activity data to export.'); return; }
+    const headers = ['Date', 'Spend', 'Tokens', 'Requests'];
+    const rows = activity.map(a => [a.day || a.hour || '', String(a.total_spend ?? 0), String(a.total_tokens ?? 0), String(a.count ?? 0)].map(c => csvCell(c)));
+    const csv = [headers.join(','), ...rows.join('\n')].join('\n');
+    const doc = await vscode.workspace.openTextDocument({ content: csv, language: 'csv' });
+    await vscode.window.showTextDocument(doc);
+    vscode.window.showInformationMessage('Activity exported as CSV.');
+  }
+
+  // ── Model Info Panel ────────────────────────────────────────────────────
+
+  private async openModelInfo(): Promise<void> {
+    if (this.modelInfoPanel) { this.modelInfoPanel.reveal(vscode.ViewColumn.Beside); return; }
+    this.modelInfoPanel = vscode.window.createWebviewPanel(
+      'corellmModelInfo', 'CoreLLM Model Info', vscode.ViewColumn.Beside, { enableScripts: true }
+    );
+    this.modelInfoPanel.onDidDispose(() => { this.modelInfoPanel = undefined; });
+    this.modelInfoPanel.webview.onDidReceiveMessage((msg) => {
+      switch (msg.type) {
+        case 'refresh': this.refreshModelInfoPanel(); break;
+        case 'exportCsv': this.exportModelInfoCsv(); break;
+        case 'setTheme':
+          this.activeTheme = msg.theme;
+          this.refreshAllPanels();
+          break;
+        case 'close': this.modelInfoPanel?.dispose(); break;
+      }
+    });
+    this.modelInfoPanel.webview.html = buildLoadingHtml('Loading Model Info\u2026', true);
+    await this.refreshModelInfoPanel();
+  }
+
+  private async refreshModelInfoPanel(): Promise<void> {
+    if (!this.modelInfoPanel) return;
+    let models: ModelInfoEntry[] = [];
+    let error: string | null = null;
+    try {
+      // Try /model/info first, fall back to /v1/models
+      const r = await this.client.fetchModelInfo();
+      models = r.data ?? [];
+      if (models.length === 0) {
+        const simpleModels = await this.client.fetchModels();
+        models = simpleModels.map(id => ({ id, model_name: id }));
+      }
+    } catch (err) {
+      error = String(err);
+      try {
+        const simpleModels = await this.client.fetchModels();
+        models = simpleModels.map(id => ({ id, model_name: id }));
+        error = null;
+      } catch { /* give up */ }
+    }
+    if (this.modelInfoPanel) {
+      this.modelInfoPanel.webview.html = buildModelInfoHtml({ models, error, activeTheme: this.activeTheme });
+    }
+  }
+
+  private async exportModelInfoCsv(): Promise<void> {
+    if (!this.modelInfoPanel) return;
+    let models: ModelInfoEntry[] = [];
+    try { const r = await this.client.fetchModelInfo(); models = r.data ?? []; } catch { /* ignore */ }
+    const headers = ['Model', 'Provider', 'Mode', 'Input Cost/Token', 'Output Cost/Token', 'Max Tokens', 'Fn Calls', 'Vision'];
+    const rows = models.map(m => {
+      const info = m.model_info || {};
+      return [m.model_name || m.id || '', info.litellm_provider || '', info.mode || '', String(info.input_cost_per_token ?? ''), String(info.output_cost_per_token ?? ''), String(info.max_tokens ?? ''), String(!!info.supports_function_calling), String(!!info.supports_vision)].map(c => csvCell(c));
+    });
+    const csv = [headers.join(','), ...rows.join('\n')].join('\n');
+    const doc = await vscode.workspace.openTextDocument({ content: csv, language: 'csv' });
+    await vscode.window.showTextDocument(doc);
+    vscode.window.showInformationMessage('Model info exported as CSV.');
+  }
+
+  // ── Spend by Tags Panel ────────────────────────────────────────────────
+
+  private async openSpendTags(): Promise<void> {
+    if (this.spendTagsPanel) { this.spendTagsPanel.reveal(vscode.ViewColumn.Beside); return; }
+    this.spendTagsPanel = vscode.window.createWebviewPanel(
+      'corellmSpendTags', 'CoreLLM Spend by Tags', vscode.ViewColumn.Beside, { enableScripts: true }
+    );
+    this.spendTagsPanel.onDidDispose(() => { this.spendTagsPanel = undefined; });
+    this.spendTagsPanel.webview.onDidReceiveMessage((msg) => {
+      switch (msg.type) {
+        case 'refresh': this.refreshSpendTagsPanel(); break;
+        case 'exportCsv': this.exportSpendTagsCsv(); break;
+        case 'setTheme':
+          this.activeTheme = msg.theme;
+          this.refreshAllPanels();
+          break;
+        case 'close': this.spendTagsPanel?.dispose(); break;
+      }
+    });
+    this.spendTagsPanel.webview.html = buildLoadingHtml('Loading Spend by Tags\u2026', true);
+    await this.refreshSpendTagsPanel();
+  }
+
+  private async refreshSpendTagsPanel(): Promise<void> {
+    if (!this.spendTagsPanel) return;
+    const dr = getDateRange(this.config.reportDuration, this.config.reportCustomStart, this.config.reportCustomEnd);
+    let tags: SpendTagEntry[] = [];
+    let error: string | null = null;
+    try { const r = await this.client.fetchSpendTags(dr.start, dr.end); tags = r.tags ?? []; } catch (err) { error = String(err); }
+    if (this.spendTagsPanel) {
+      this.spendTagsPanel.webview.html = buildSpendTagsHtml({ tags, error, activeTheme: this.activeTheme });
+    }
+  }
+
+  private async exportSpendTagsCsv(): Promise<void> {
+    if (!this.spendTagsPanel) return;
+    let tags: SpendTagEntry[] = [];
+    try {
+      const dr = getDateRange(this.config.reportDuration, this.config.reportCustomStart, this.config.reportCustomEnd);
+      const r = await this.client.fetchSpendTags(dr.start, dr.end);
+      tags = r.tags ?? [];
+    } catch { /* ignore */ }
+    if (tags.length === 0) { vscode.window.showWarningMessage('No tag data to export.'); return; }
+    const headers = ['Tag', 'Spend', 'Tokens', 'Requests'];
+    const rows = tags.map(t => [t.tag_name || '', String(t.total_spend ?? 0), String(t.total_tokens ?? 0), String(t.count ?? 0)].map(c => csvCell(c)));
+    const csv = [headers.join(','), ...rows.join('\n')].join('\n');
+    const doc = await vscode.workspace.openTextDocument({ content: csv, language: 'csv' });
+    await vscode.window.showTextDocument(doc);
+    vscode.window.showInformationMessage('Tag spend exported as CSV.');
+  }
+
+  // ── Key Health Panel ────────────────────────────────────────────────────
+
+  private async openKeyHealth(): Promise<void> {
+    if (this.keyHealthPanel) { this.keyHealthPanel.reveal(vscode.ViewColumn.Beside); return; }
+    this.keyHealthPanel = vscode.window.createWebviewPanel(
+      'corellmKeyHealth', 'CoreLLM Key Health', vscode.ViewColumn.Beside, { enableScripts: true }
+    );
+    this.keyHealthPanel.onDidDispose(() => { this.keyHealthPanel = undefined; });
+    this.keyHealthPanel.webview.onDidReceiveMessage((msg) => {
+      switch (msg.type) {
+        case 'refresh': this.refreshKeyHealthPanel(); break;
+        case 'setTheme':
+          this.activeTheme = msg.theme;
+          this.refreshAllPanels();
+          break;
+        case 'close': this.keyHealthPanel?.dispose(); break;
+      }
+    });
+    this.keyHealthPanel.webview.html = buildLoadingHtml('Loading Key Health\u2026', true);
+    await this.refreshKeyHealthPanel();
+  }
+
+  private async refreshKeyHealthPanel(): Promise<void> {
+    if (!this.keyHealthPanel) return;
+    let healthResult: KeyHealthResponse;
+    let error: string | null = null;
+    try { healthResult = await this.client.fetchKeyHealth(); } catch (err) { error = String(err); healthResult = {} as KeyHealthResponse; }
+    const health: KeyHealthResponse[] = healthResult?.key ? [healthResult] : (healthResult as unknown as KeyHealthResponse[]);
+    if (this.keyHealthPanel) {
+      this.keyHealthPanel.webview.html = buildKeyHealthHtml({
+        health: Array.isArray(healthResult) ? healthResult : health,
+        error,
+        activeTheme: this.activeTheme,
+      });
+    }
+  }
+
+  /** Refresh all open webview panels */
+  private refreshAllPanels(): void {
+    if (this.budgetOverviewPanel) this.refreshBudgetOverview();
+    if (this.spendLogsPanel) this.refreshSpendLogsPanel();
+    if (this.keyListPanel) this.refreshKeyListPanel();
+    if (this.tutorialPanel) this.refreshTutorial();
+    if (this.globalSpendPanel) this.refreshGlobalSpend();
+    if (this.teamsPanel) this.refreshTeamsPanel();
+    if (this.activityPanel) this.refreshActivityPanel();
+    if (this.modelInfoPanel) this.refreshModelInfoPanel();
+    if (this.spendTagsPanel) this.refreshSpendTagsPanel();
+    if (this.keyHealthPanel) this.refreshKeyHealthPanel();
+  }
+
+  // ── Spend Alert Check ───────────────────────────────────────────────────
+
+  private checkSpendAlerts(logs: SpendLogEntry[]): void {
+    const threshold = this.config.spendAlertThreshold;
+    if (threshold <= 0 || logs.length === 0) return;
+    for (const log of logs) {
+      const spend = log.spend ?? 0;
+      if (spend >= threshold) {
+        const model = log.model || 'unknown';
+        const ts = log.startTime ? new Date(log.startTime).toLocaleString() : 'recently';
+        vscode.window.showWarningMessage(
+          `CoreLLM: High spend alert \u2014 $${spend.toFixed(4)} on ${model} (${ts})`,
+          'View Spend Logs'
+        ).then(sel => {
+          if (sel === 'View Spend Logs') this.openSpendLogs();
+        });
+        break; // One alert per refresh cycle
+      }
+    }
+  }
+
   // ── Export CSV ──────────────────────────────────────────────────────────
 
   private async exportBudgetCsv(): Promise<void> {
@@ -1674,6 +2935,17 @@ class BalanceStatusBarManager {
     this.statusBarItem.text = display.text;
     this.statusBarItem.tooltip = display.tooltip;
     this.statusBarItem.color = display.color ?? undefined;
+  }
+
+  /** Called on activation to set the initial display mode from settings. */
+  private setInitialDisplayMode(): void {
+    const mode = this.config.statusBarDisplayMode;
+    if (mode === 'cycle') {
+      this.displayCycleIndex = 0;
+    } else {
+      const modeMap: Record<string, number> = { remaining: 0, 'usage-bar': 1, spend: 2, budget: 3 };
+      this.displayCycleIndex = modeMap[mode] ?? 0;
+    }
   }
 
   /** Build an ASCII bar like [██████░░░░] for a given percentage (0-100). */
@@ -1794,12 +3066,29 @@ class BalanceStatusBarManager {
         } catch { /* fallback failed, keep original data */ }
       }
       this.lastKeyInfo = data;
-      this.displayCycleIndex = 0;
-      const display = this.computeDisplay(data, 0);
+      this.setInitialDisplayMode();
+      const display = this.computeDisplay(data, this.displayCycleIndex);
       this.statusBarItem.text = display.text;
       this.statusBarItem.tooltip = display.tooltip;
       this.statusBarItem.color = display.color ?? undefined;
-      if (this.config.showSpendLogs) this.fetchAndAppendSpendLogs();
+
+      // Append additional info based on settings
+      if (this.config.showSpendLogs) await this.fetchAndAppendSpendLogs();
+      if (this.config.showGlobalSpend) await this.appendGlobalSpendInfo();
+      if (this.config.showTeamSpend) await this.appendTeamSpendInfo();
+
+      // Check spend alerts
+      if (this.config.spendAlertThreshold > 0) {
+        try {
+          const logs = await this.client.fetchSpendLogs(5);
+          this.checkSpendAlerts(logs);
+        } catch { /* silent */ }
+      }
+
+      // Auto-refresh activity panels if open and enabled
+      if (this.config.enableActivityMonitoring) {
+        if (this.activityPanel) this.refreshActivityPanel();
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       // If management endpoints are blocked, try to at least show models
@@ -1833,6 +3122,32 @@ class BalanceStatusBarManager {
     } catch { /* silent */ }
   }
 
+  private async appendGlobalSpendInfo(): Promise<void> {
+    try {
+      const dr = getDateRange(this.config.reportDuration, this.config.reportCustomStart, this.config.reportCustomEnd);
+      const [keysData] = await Promise.allSettled([
+        this.client.fetchGlobalSpendKeys(dr.start, dr.end),
+      ]);
+      if (keysData.status === 'fulfilled' && keysData.value.keys) {
+        const total = keysData.value.keys.reduce((s, k) => s + (k.total_spend ?? 0), 0);
+        this.statusBarItem.text += ` | global: $${total.toFixed(2)}`;
+      }
+    } catch { /* silent */ }
+  }
+
+  private async appendTeamSpendInfo(): Promise<void> {
+    try {
+      const dr = getDateRange(this.config.reportDuration, this.config.reportCustomStart, this.config.reportCustomEnd);
+      const [teamsData] = await Promise.allSettled([
+        this.client.fetchGlobalSpendTeams(dr.start, dr.end),
+      ]);
+      if (teamsData.status === 'fulfilled' && teamsData.value.teams) {
+        const total = teamsData.value.teams.reduce((s, t) => s + (t.total_spend ?? 0), 0);
+        this.statusBarItem.text += ` | teams: $${total.toFixed(2)}`;
+      }
+    } catch { /* silent */ }
+  }
+
   private startAutoRefresh(): void {
     if (this.config.refreshInterval <= 0) return;
     this.timer = setInterval(() => this.refresh(), Math.max(5000, this.config.refreshInterval * 1000));
@@ -1842,7 +3157,11 @@ class BalanceStatusBarManager {
     if (this.timer) { clearInterval(this.timer); this.timer = undefined; }
   }
 
-  start(): void { this.refresh(); if (this.config.refreshInterval > 0) this.startAutoRefresh(); }
+  start(): void {
+    this.setInitialDisplayMode();
+    this.refresh();
+    if (this.config.refreshInterval > 0) this.startAutoRefresh();
+  }
 
   dispose(): void {
     this.stopAutoRefresh();
@@ -1859,7 +3178,7 @@ let updateTimer: NodeJS.Timeout | undefined;
 
 const EXTENSION_ID = 'litellm-tools.corellm';
 const GITHUB_REPO = 'core-innovation/litellm-balance-checker';
-const CURRENT_VERSION = '0.5.0';
+const CURRENT_VERSION = '0.6.0';
 const LAST_NOTIFIED_KEY = 'corellm.lastNotifiedVersion';
 
 /** Try to fetch the latest tag from tags API (fallback when no releases exist). */

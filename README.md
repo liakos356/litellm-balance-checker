@@ -19,8 +19,16 @@
   - Provider budget bars
   - Model usage donut chart
   - Recent spend logs table
-- **Spend Logs panel** — browse latest 50 spend entries
-- **Key List panel** — all keys with spend/budget bars
+  - Cost efficiency metrics (cost/req, cost/token)
+  - Export to CSV
+- **Spend Logs panel** — browse latest 50 spend entries with search & cost/token
+- **Key List panel** — all keys with spend/budget bars, search, over-budget highlight
+- **Global Spend panel** — proxy-wide spend broken down by key, model, and team with SVG charts
+- **Teams panel** — team budgets, spend, members, models, blocked status
+- **Activity panel** — proxy activity timeline with spend trend line chart
+- **Model Info panel** — model catalog with pricing, capabilities, providers (searchable)
+- **Spend by Tags panel** — cost tracking by custom spend tags with bar chart
+- **Key Health panel** — key health status, last access, and models
 
 ---
 
@@ -93,6 +101,17 @@ Logs in via `POST /login`, extracts the embedded `sk-...` key from the JWT sessi
 | `reportDuration` | `"7d"` | Time range for budget spend charts (`1h`, `24h`, `7d`, `30d`, `custom`) |
 | `reportCustomStart` | `""` | Custom start date (YYYY-MM-DD) when `reportDuration=custom` |
 | `reportCustomEnd` | `""` | Custom end date (YYYY-MM-DD) when `reportDuration=custom` |
+| `updateCheckInterval` | `24` | Hours between GitHub update checks |
+| `webviewTheme` | `"vscode"` | Theme override for panels (vscode/light/dark/hc) |
+| `showTeamSpend` | `false` | Show team-level spend in the status bar |
+| `showGlobalSpend` | `false` | Show global spend totals in the status bar |
+| `showModelSpend` | `false` | Show per-model spend breakdown in panels |
+| `cacheResults` | `true` | Cache API results to reduce network requests |
+| `spendAlertThreshold` | `0` | Alert threshold in USD (0 = disabled) |
+| `enableActivityMonitoring` | `false` | Auto-refresh activity monitoring panels |
+| `teamFilter` | `""` | Filter data by specific team ID |
+| `defaultPanelTab` | `"overview"` | Default panel tab (overview/global/teams/activity) |
+| `statusBarDisplayMode` | `"cycle"` | Default display mode (cycle/remaining/spend/usage-bar/budget) |
 
 ---
 
@@ -104,10 +123,17 @@ Logs in via `POST /login`, extracts the embedded `sk-...` key from the JWT sessi
 | `CoreLLM: Show Budget Overview` | Open full dashboard with charts |
 | `CoreLLM: Show Spend Logs` | Open paginated spend logs panel |
 | `CoreLLM: List All Keys` | List all keys with spend & budget |
+| `CoreLLM: Show Global Spend` | Global spend breakdown by key, model, and team |
+| `CoreLLM: Show Teams` | Team budgets, spend, members, and models |
+| `CoreLLM: Show Activity` | Proxy activity timeline with spend trend chart |
+| `CoreLLM: Show Model Info` | Model catalog with pricing and capabilities |
+| `CoreLLM: Show Spend by Tags` | Cost tracking by custom spend tags |
+| `CoreLLM: Show Key Health` | Key health status and last access |
 | `CoreLLM: Toggle Auto-Refresh` | Enable/disable polling |
 | `CoreLLM: Enable Auto-Refresh` | Start auto-refresh polling |
 | `CoreLLM: Disable Auto-Refresh` | Stop auto-refresh polling |
 | `CoreLLM: Set Report Duration` | Choose time range for charts (1h/24h/7d/30d/custom) |
+| `CoreLLM: Cycle Status Bar Display` | Cycle through remaining, usage bar, spend, budget |
 | `CoreLLM: Open Settings` | Jump to extension settings |
 | `CoreLLM: Check for Updates` | Check for new version on GitHub |
 | `CoreLLM: About` | Show extension version info |
@@ -121,9 +147,18 @@ Logs in via `POST /login`, extracts the embedded `sk-...` key from the JWT sessi
 | `POST /login` | Login with username/password (auth method B) |
 | `GET /key/info` | Key spend, budget, metadata |
 | `GET /key/list` | All keys with spend/budget |
+| `GET /key/health` | Key health status |
 | `GET /provider/budgets` | Per-provider spend & budget limits |
 | `GET /global/spend/report` | Daily spend by team |
+| `GET /global/spend/keys` | Global spend breakdown by key |
+| `GET /global/spend/models` | Global spend breakdown by model |
+| `GET /global/spend/teams` | Global spend breakdown by team |
+| `GET /global/activity` | Global proxy activity |
 | `GET /spend/logs` | Recent spend log entries |
+| `GET /spend/tags` | Spend breakdown by custom tags |
+| `GET /team/list` | List all teams with budgets |
+| `GET /team/info` | Detailed team info |
+| `GET /model/info` | Detailed model info with pricing |
 | `GET /v1/models` | Accessible models |
 
 ---
