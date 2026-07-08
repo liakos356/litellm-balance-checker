@@ -1,6 +1,10 @@
 # Changelog
 
 All notable changes to the CoreLLM VS Code extension.
+## 0.8.18 (2026-07-08)
+
+- **Fixed:** Extension now activates immediately after install without requiring a VS Code restart — added `*` activation event alongside `onStartupFinished`
+
 ## 0.8.17 (2026-07-08)
 
 - **Improved:** Release prompt now auto-reloads VS Code after local VSIX install instead of reminding the user manually
