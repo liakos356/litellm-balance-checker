@@ -1442,7 +1442,7 @@ class BalanceStatusBarManager {
       vscode.commands.registerCommand("corellm.openSettings", () => {
         vscode.commands.executeCommand(
           "workbench.action.openSettings",
-          "@ext:litellm-tools.corellm",
+          "@ext:CoreInnovation.corellm",
         );
       }),
       vscode.commands.registerCommand("corellm.toggleAutoRefresh", () => {
@@ -1491,7 +1491,7 @@ class BalanceStatusBarManager {
             if (sel === "Open Settings") {
               vscode.commands.executeCommand(
                 "workbench.action.openSettings",
-                "@ext:litellm-tools.corellm",
+                "@ext:CoreInnovation.corellm",
               );
             }
           });
@@ -1690,7 +1690,7 @@ class BalanceStatusBarManager {
           if (this.changelogPanel) this.refreshChangelog();
           break;
         case "openSettings":
-          vscode.commands.executeCommand("workbench.action.openSettings", "@ext:litellm-tools.corellm");
+          vscode.commands.executeCommand("workbench.action.openSettings", "@ext:CoreInnovation.corellm");
           break;
         case "cancel":
         case "close":
@@ -2014,7 +2014,7 @@ class BalanceStatusBarManager {
         case "openSettings":
           vscode.commands.executeCommand(
             "workbench.action.openSettings",
-            "@ext:litellm-tools.corellm",
+            "@ext:CoreInnovation.corellm",
           );
           break;
         case "openBudgetOverview":
@@ -2107,7 +2107,7 @@ class BalanceStatusBarManager {
         case "openSettings":
           vscode.commands.executeCommand(
             "workbench.action.openSettings",
-            "@ext:litellm-tools.corellm",
+            "@ext:CoreInnovation.corellm",
           );
           break;
         case "openBudgetOverview":
@@ -3039,7 +3039,7 @@ class BalanceStatusBarManager {
         case "setTheme": this.activeTheme = msg.theme; this.refreshAllPanels(); break;
         case "switchTab": this.unifiedActiveTab = msg.tab; break;
         case "openSettings":
-          vscode.commands.executeCommand("workbench.action.openSettings", "@ext:litellm-tools.corellm");
+          vscode.commands.executeCommand("workbench.action.openSettings", "@ext:CoreInnovation.corellm");
           break;
         case "cancel": case "close": this.unifiedDashboardPanel?.dispose(); break;
       }
@@ -3636,7 +3636,7 @@ class BalanceStatusBarManager {
 
 let manager: BalanceStatusBarManager | undefined;
 
-const CURRENT_VERSION = "0.8.14";
+const CURRENT_VERSION = "0.8.15";
 const LAST_SEEN_VERSION_KEY = "corellm.lastSeenVersion";
 
 // ─── Activation ──────────────────────────────────────────────────────────────
@@ -3669,7 +3669,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         if (sel === "Open Settings") {
           vscode.commands.executeCommand(
             "workbench.action.openSettings",
-            "@ext:litellm-tools.corellm",
+            "@ext:CoreInnovation.corellm",
           );
         }
       });
