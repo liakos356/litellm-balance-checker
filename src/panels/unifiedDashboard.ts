@@ -161,6 +161,7 @@ export function buildUnifiedDashboardHtml(data: UnifiedDashboardData): string {
   <span class="title-actions">
     <span class="theme-btn" id="themeBtn" title="Toggle theme">${materialIcon("palette", 18)}</span>
     <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">${materialIcon("download", 16)} CSV</button>
+    <button class="toolbar-btn" id="exportPdfBtn" title="Save as PDF">${materialIcon("picture_as_pdf", 16)} PDF</button>
     <button class="toolbar-btn primary" id="refreshBtn" title="Refresh all">${materialIcon("refresh", 16)} Refresh</button>
   </span>
 </h2>
@@ -419,6 +420,9 @@ ${
   // Export
   document.getElementById('exportCsvBtn').addEventListener('click', function() {
     vscode.postMessage({ type: 'exportCsv' });
+  });
+  document.getElementById('exportPdfBtn').addEventListener('click', function() {
+    window.print();
   });
 
   // Tab switching

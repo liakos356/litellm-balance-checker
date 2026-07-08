@@ -2657,6 +2657,76 @@ class BalanceStatusBarManager {
     vscode.window.showInformationMessage("Tag spend exported as CSV.");
   }
 
+  private async exportKeyHealthCsv(): Promise<void> {
+    if (!this.keyHealthPanel) return;
+    let healthResult: KeyHealthResponse;
+    try {
+      healthResult = await this.client.fetchKeyHealth();
+    } catch {
+      vscode.window.showWarningMessage("No key health data to export.");
+      return;
+    }
+
+    const health: KeyHealthResponse[] = healthResult?.key
+      ? [healthResult]
+      : (healthResult as unknown as KeyHealthResponse[]);
+    const headers = ["Key Alias", "Status", "Spend", "Max Budget", "Models"];
+    const rows = health.map((k) =>
+      [
+        k.key_alias || k.key_name || k.key?.slice(0, 20) || "",
+        k.health || "unknown",
+        String(k.spend ?? 0),
+        String(k.max_budget ?? ""),
+        (k.models ?? []).join("; "),
+      ].map((c) => csvCell(c)),
+    );
+    const csv = [headers.join(","), ...rows.join("\n")].join("\n");
+    const doc = await vscode.workspace.openTextDocument({
+      content: csv,
+      language: "csv",
+    });
+    await vscode.window.showTextDocument(doc);
+    vscode.window.showInformationMessage("Key health exported as CSV.");
+  }
+
+  private async exportHealthDashboardCsv(): Promise<void> {
+    if (!this.healthDashboardPanel) return;
+    let health: HealthResponse | null = null;
+    let readiness: ReadinessResponse | null = null;
+    try { health = await this.client.fetchHealth(); } catch { /* ignore */ }
+    try { readiness = await this.client.fetchReadiness(); } catch { /* ignore */ }
+
+    const headers = ["Metric", "Value"];
+    const rows: string[][] = [];
+    rows.push(["Healthy Endpoints", String(health?.healthy_count ?? 0)]);
+    rows.push(["Unhealthy Endpoints", String(health?.unhealthy_count ?? 0)]);
+    rows.push(["Proxy Status", readiness?.status ?? "unknown"]);
+    rows.push(["LiteLLM Version", readiness?.litellm_version ?? ""]);
+    rows.push(["Database", readiness?.db ?? ""]);
+    rows.push(["Cache", readiness?.cache ?? ""]);
+    if (health?.healthy_endpoints) {
+      for (const ep of health.healthy_endpoints) {
+        rows.push(["Healthy: " + (ep.model || "unknown"), ep.api_base || ""]);
+      }
+    }
+    if (health?.unhealthy_endpoints) {
+      for (const ep of health.unhealthy_endpoints) {
+        rows.push(["Unhealthy: " + (ep.model || "unknown"), ep.api_base || ""]);
+      }
+    }
+
+    const csv = [
+      headers.join(","),
+      ...rows.map((r) => r.map((c) => csvCell(c)).join(",")),
+    ].join("\n");
+    const doc = await vscode.workspace.openTextDocument({
+      content: csv,
+      language: "csv",
+    });
+    await vscode.window.showTextDocument(doc);
+    vscode.window.showInformationMessage("Health dashboard exported as CSV.");
+  }
+
   // ── Key Health Panel ────────────────────────────────────────────────────
 
   private async openKeyHealth(): Promise<void> {
@@ -2678,6 +2748,9 @@ class BalanceStatusBarManager {
       switch (msg.type) {
         case "refresh":
           this.refreshKeyHealthPanel();
+          break;
+        case "exportCsv":
+          this.exportKeyHealthCsv();
           break;
         case "setTheme":
           this.activeTheme = msg.theme;
@@ -2756,6 +2829,7 @@ class BalanceStatusBarManager {
     this.healthDashboardPanel.webview.onDidReceiveMessage((msg) => {
       switch (msg.type) {
         case "refresh": this.refreshHealthDashboardPanel(); break;
+        case "exportCsv": this.exportHealthDashboardCsv(); break;
         case "setTheme": this.activeTheme = msg.theme; this.refreshAllPanels(); break;
         case "cancel": case "close": this.healthDashboardPanel?.dispose(); break;
       }
@@ -3514,7 +3588,7 @@ let updateTimer: NodeJS.Timeout | undefined;
 
 const EXTENSION_ID = "litellm-tools.corellm";
 const GITHUB_REPO = "core-innovation/litellm-balance-checker";
-const CURRENT_VERSION = "0.8.6";
+const CURRENT_VERSION = "0.8.8";
 const LAST_NOTIFIED_KEY = "corellm.lastNotifiedVersion";
 const LAST_SEEN_VERSION_KEY = "corellm.lastSeenVersion";
 

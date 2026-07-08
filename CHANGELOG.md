@@ -2,6 +2,17 @@
 
 All notable changes to the CoreLLM VS Code extension.
 
+## 0.8.8
+
+- **Changed:** Extension icon now uses `docs/logo.png`
+
+## 0.8.7
+
+- **Added:** PDF export button (`📄 PDF`) on all panels — uses `window.print()` to open the OS print dialog where users can save as PDF
+- **Added:** `@media print` CSS rules to format all panels cleanly for PDF/print output (hides toolbars, buttons, search bars; adjusts colors for print)
+- **Added:** CSV export buttons on Health Dashboard and Key Health panels (previously missing)
+- PDF export available on: Budget Overview, Spend Logs, Key List, Global Spend, Teams, Activity, Spend Tags, Model Info, Key Health, Health Dashboard, Provider Spend, User Manager, and Unified Dashboard
+
 ## 0.8.6
 
 - **Added:** Request Logs panel (`CoreLLM: Show Request Logs`) — view raw HTTP request/response text for debugging

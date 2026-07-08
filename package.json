@@ -2,9 +2,9 @@
   "name": "corellm",
   "displayName": "CoreLLM",
   "description": "Monitor LiteLLM API key balances, budgets, and usage directly from VS Code status bar",
-  "version": "0.8.6",
+  "version": "0.8.8",
   "publisher": "litellm-tools",
-  "icon": "icon.png",
+  "icon": "docs/logo.png",
   "license": "MIT",
   "repository": {
     "type": "git",
