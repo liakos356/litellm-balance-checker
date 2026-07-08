@@ -47,6 +47,7 @@ export function getConfig(): ExtensionConfig {
     dateFormat: cfg.get<string>("dateFormat", "relative"),
     enableTreeView: cfg.get<boolean>("enableTreeView", true),
     treeViewAutoRefresh: cfg.get<boolean>("treeViewAutoRefresh", true),
+    enableRequestLogging: cfg.get<boolean>("enableRequestLogging", false),
   };
 }
 

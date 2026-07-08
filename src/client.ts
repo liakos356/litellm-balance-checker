@@ -28,6 +28,7 @@ import {
   GuardrailsListResponse,
   ConfigYamlResponse,
   TokenCountResponse,
+  RequestLogEntry,
 } from "./types";
 
 export class CoreLLMApiClient {
@@ -35,9 +36,30 @@ export class CoreLLMApiClient {
   private cachedJwtKey: string | undefined;
   private loginPromise: Promise<string | null> | undefined;
   private cache: Map<string, CacheEntry<unknown>> = new Map();
+  private static requestLogs: RequestLogEntry[] = [];
+  private static logCounter = 0;
+  private static MAX_LOG_ENTRIES = 200;
+  private enableRequestLogging: boolean;
 
   constructor(config: ExtensionConfig) {
     this.config = config;
+    this.enableRequestLogging = config.enableRequestLogging;
+  }
+
+  /** Update logging state (called when config changes). */
+  setRequestLogging(enabled: boolean): void {
+    this.enableRequestLogging = enabled;
+  }
+
+  /** Get all buffered request logs. */
+  static getRequestLogs(): RequestLogEntry[] {
+    return CoreLLMApiClient.requestLogs;
+  }
+
+  /** Clear all buffered request logs. */
+  static clearRequestLogs(): void {
+    CoreLLMApiClient.requestLogs = [];
+    CoreLLMApiClient.logCounter = 0;
   }
 
   /** Get or set cached data with a configurable TTL (default 30s). */
@@ -130,6 +152,37 @@ export class CoreLLMApiClient {
 
   // ── Generic GET / POST helpers ──────────────────────────────────────────
 
+  private logRequest(
+    method: string,
+    path: string,
+    fullUrl: string,
+    reqHeaders: Record<string, string>,
+    reqBody: string | undefined,
+    resStatus: number,
+    resBody: string,
+    durationMs: number,
+    error?: string,
+  ): void {
+    if (!this.enableRequestLogging) return;
+    CoreLLMApiClient.logCounter++;
+    CoreLLMApiClient.requestLogs.unshift({
+      id: CoreLLMApiClient.logCounter,
+      timestamp: new Date().toISOString(),
+      method,
+      path,
+      fullUrl,
+      requestHeaders: { ...reqHeaders },
+      requestBody: reqBody,
+      responseStatus: resStatus,
+      responseBody: resBody,
+      durationMs,
+      error,
+    });
+    if (CoreLLMApiClient.requestLogs.length > CoreLLMApiClient.MAX_LOG_ENTRIES) {
+      CoreLLMApiClient.requestLogs.length = CoreLLMApiClient.MAX_LOG_ENTRIES;
+    }
+  }
+
   async apiGet<T>(
     path: string,
     params?: Record<string, string>,
@@ -140,25 +193,47 @@ export class CoreLLMApiClient {
         if (v) url.searchParams.set(k, v);
       }
     }
-    const res = await fetch(url.toString(), {
-      method: "GET",
-      headers: await this.getHeaders(),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      const snippet = text.slice(0, 300);
-      if (
-        res.status === 403 &&
-        snippet.includes("not allowed to call this route")
-      ) {
-        throw new Error(
-          `Your API key lacks management permissions (403 on ${path}). ` +
-            `Use an admin/proxy master key in the "adminKey" setting.`,
-        );
+    const headers = await this.getHeaders();
+    const fullUrl = url.toString();
+    const startTime = Date.now();
+    let resStatus = 0;
+    let resText = "";
+    try {
+      const res = await fetch(fullUrl, {
+        method: "GET",
+        headers,
+      });
+      resStatus = res.status;
+      resText = await res.text();
+      if (!res.ok) {
+        const snippet = resText.slice(0, 300);
+        this.logRequest("GET", path, fullUrl, headers, undefined, resStatus, snippet, Date.now() - startTime);
+        if (
+          res.status === 403 &&
+          snippet.includes("not allowed to call this route")
+        ) {
+          throw new Error(
+            `Your API key lacks management permissions (403 on ${path}). ` +
+              `Use an admin/proxy master key in the "adminKey" setting.`,
+          );
+        }
+        throw new Error(`API ${res.status} on ${path}: ${snippet}`);
       }
-      throw new Error(`API ${res.status} on ${path}: ${snippet}`);
+      this.logRequest("GET", path, fullUrl, headers, undefined, resStatus, resText.slice(0, 2000), Date.now() - startTime);
+      return JSON.parse(resText) as T;
+    } catch (err) {
+      if (err instanceof SyntaxError) {
+        // JSON parse error — response was not JSON
+        this.logRequest("GET", path, fullUrl, headers, undefined, resStatus, resText.slice(0, 2000), Date.now() - startTime, `Parse error: ${err.message}`);
+        throw new Error(`Invalid JSON from ${path}: ${resText.slice(0, 200)}`);
+      }
+      // Re-throw if already an Error we created above
+      if (err instanceof Error && err.message.startsWith("API ") || err instanceof Error && err.message.startsWith("Invalid JSON") || err instanceof Error && err.message.startsWith("Your API key")) {
+        throw err;
+      }
+      this.logRequest("GET", path, fullUrl, headers, undefined, resStatus || 0, resText.slice(0, 500), Date.now() - startTime, String(err));
+      throw err;
     }
-    return res.json() as Promise<T>;
   }
 
   async apiPost<T>(

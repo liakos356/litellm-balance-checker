@@ -1508,6 +1508,7 @@ class BalanceStatusBarManager {
         case "openSettings":
           vscode.commands.executeCommand("workbench.action.openSettings", "@ext:litellm-tools.corellm");
           break;
+        case "cancel":
         case "close":
           this.budgetOverviewPanel?.dispose();
           break;
@@ -1661,6 +1662,7 @@ class BalanceStatusBarManager {
           if (this.tutorialPanel) this.refreshTutorial();
           if (this.changelogPanel) this.refreshChangelog();
           break;
+        case "cancel":
         case "close":
           this.spendLogsPanel?.dispose();
           break;
@@ -1745,6 +1747,7 @@ class BalanceStatusBarManager {
           if (this.tutorialPanel) this.refreshTutorial();
           if (this.changelogPanel) this.refreshChangelog();
           break;
+        case "cancel":
         case "close":
           this.keyListPanel?.dispose();
           break;
@@ -1918,6 +1921,7 @@ class BalanceStatusBarManager {
           this.activeTheme = msg.theme;
           this.refreshAllPanels();
           break;
+        case "cancel":
         case "close":
           this.globalSpendPanel?.dispose();
           break;
@@ -2066,6 +2070,7 @@ class BalanceStatusBarManager {
           this.activeTheme = msg.theme;
           this.refreshAllPanels();
           break;
+        case "cancel":
         case "close":
           this.teamsPanel?.dispose();
           break;
@@ -2174,6 +2179,7 @@ class BalanceStatusBarManager {
           this.activeTheme = msg.theme;
           this.refreshAllPanels();
           break;
+        case "cancel":
         case "close":
           this.activityPanel?.dispose();
           break;
@@ -2278,6 +2284,7 @@ class BalanceStatusBarManager {
           this.activeTheme = msg.theme;
           this.refreshAllPanels();
           break;
+        case "cancel":
         case "close":
           this.modelInfoPanel?.dispose();
           break;
@@ -2393,6 +2400,7 @@ class BalanceStatusBarManager {
           this.activeTheme = msg.theme;
           this.refreshAllPanels();
           break;
+        case "cancel":
         case "close":
           this.spendTagsPanel?.dispose();
           break;
@@ -2494,6 +2502,7 @@ class BalanceStatusBarManager {
           this.activeTheme = msg.theme;
           this.refreshAllPanels();
           break;
+        case "cancel":
         case "close":
           this.keyHealthPanel?.dispose();
           break;
@@ -2566,7 +2575,7 @@ class BalanceStatusBarManager {
       switch (msg.type) {
         case "refresh": this.refreshHealthDashboardPanel(); break;
         case "setTheme": this.activeTheme = msg.theme; this.refreshAllPanels(); break;
-        case "close": this.healthDashboardPanel?.dispose(); break;
+        case "cancel": case "close": this.healthDashboardPanel?.dispose(); break;
       }
     });
     this.healthDashboardPanel.webview.html = healthLoading("Loading Health Dashboard\u2026");
@@ -2618,7 +2627,7 @@ class BalanceStatusBarManager {
         case "refresh": this.refreshProviderSpendPanel(); break;
         case "exportCsv": this.exportProviderSpendCsv(); break;
         case "setTheme": this.activeTheme = msg.theme; this.refreshAllPanels(); break;
-        case "close": this.providerSpendPanel?.dispose(); break;
+        case "cancel": case "close": this.providerSpendPanel?.dispose(); break;
       }
     });
     this.providerSpendPanel.webview.html = buildLoadingHtml("Loading Provider Spend\u2026", true);
@@ -2670,7 +2679,7 @@ class BalanceStatusBarManager {
         case "refresh": this.refreshUserManagerPanel(); break;
         case "exportCsv": this.exportUserManagerCsv(); break;
         case "setTheme": this.activeTheme = msg.theme; this.refreshAllPanels(); break;
-        case "close": this.userManagerPanel?.dispose(); break;
+        case "cancel": case "close": this.userManagerPanel?.dispose(); break;
       }
     });
     this.userManagerPanel.webview.html = buildLoadingHtml("Loading Users\u2026", true);
@@ -2723,7 +2732,7 @@ class BalanceStatusBarManager {
         case "openSettings":
           vscode.commands.executeCommand("workbench.action.openSettings", "@ext:litellm-tools.corellm");
           break;
-        case "close": this.unifiedDashboardPanel?.dispose(); break;
+        case "cancel": case "close": this.unifiedDashboardPanel?.dispose(); break;
       }
     });
     this.unifiedDashboardPanel.webview.html = dashboardLoading("Loading Dashboard\u2026");
@@ -3288,7 +3297,7 @@ let updateTimer: NodeJS.Timeout | undefined;
 
 const EXTENSION_ID = "litellm-tools.corellm";
 const GITHUB_REPO = "core-innovation/litellm-balance-checker";
-const CURRENT_VERSION = "0.8.3";
+const CURRENT_VERSION = "0.8.4";
 const LAST_NOTIFIED_KEY = "corellm.lastNotifiedVersion";
 const LAST_SEEN_VERSION_KEY = "corellm.lastSeenVersion";
 

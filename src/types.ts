@@ -356,6 +356,20 @@ export interface CacheEntry<T> {
   ttl: number;
 }
 
+export interface RequestLogEntry {
+  id: number;
+  timestamp: string;
+  method: string;
+  path: string;
+  fullUrl: string;
+  requestHeaders: Record<string, string>;
+  requestBody?: string;
+  responseStatus: number;
+  responseBody: string;
+  durationMs: number;
+  error?: string;
+}
+
 export interface StatusBarDisplay {
   text: string;
   tooltip: string;
@@ -419,4 +433,5 @@ export interface ExtensionConfig {
   dateFormat: string;
   enableTreeView: boolean;
   treeViewAutoRefresh: boolean;
+  enableRequestLogging: boolean;
 }

@@ -2,6 +2,10 @@
 
 All notable changes to the CoreLLM VS Code extension.
 
+## 0.8.4
+
+- **Fixed:** Cancel button on loading screens now actually closes the panel instead of doing nothing
+
 ## 0.8.3
 
 - **Removed:** Admin-only budget features (Provider Budgets, Global Spend Report) from the Budget Overview panel — non-admin users no longer see auth error boxes

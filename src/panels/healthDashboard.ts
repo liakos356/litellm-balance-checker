@@ -6,6 +6,7 @@ import {
   escapeHtml,
   usd,
   getRelativeTime,
+  materialIcon,
 } from "../helpers";
 import {
   HealthResponse,
@@ -53,10 +54,10 @@ export function buildHealthDashboardHtml(data: HealthDashboardData): string {
 <style>${COMMON_CSS}${themeOverride}</style>
 </head>
 <body>
-<h2>\u{1F3E5} CoreLLM Health Dashboard
+<h2>${materialIcon("health", 22)} CoreLLM Health Dashboard
   <span class="title-actions">
-    <span class="theme-btn" id="themeBtn" title="Toggle theme">\u{1F3A8}</span>
-    <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">\u{1F504} Refresh</button>
+    <span class="theme-btn" id="themeBtn" title="Toggle theme">${materialIcon("palette", 18)}</span>
+    <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">${materialIcon("refresh", 16)} Refresh</button>
   </span>
 </h2>
 
@@ -82,10 +83,10 @@ export function buildHealthDashboardHtml(data: HealthDashboardData): string {
 
 <!-- Model Health -->
 <div class="card">
-  <h3>\u{1F4E1} Model Health
+  <h3>${materialIcon("health", 18)} Model Health
     <span class="badge ${unhealthyCount > 0 ? "badge-error" : "badge-success"}">${healthyCount}/${healthyCount + unhealthyCount}</span>
   </h3>
-  ${healthError ? `<div class="error-box">\u26A0 ${escapeHtml(healthError)}</div>` : ""}
+  ${healthError ? `<div class="error-box">${materialIcon("warning", 16)} ${escapeHtml(healthError)}</div>` : ""}
   ${
     health
       ? `
@@ -94,7 +95,7 @@ export function buildHealthDashboardHtml(data: HealthDashboardData): string {
       .map(
         (ep) => `
     <div class="health-card healthy">
-      <div class="health-icon">\u2705</div>
+      <div class="health-icon">${materialIcon("check_circle", 24)}</div>
       <div class="endpoint-name">${escapeHtml(ep.model || "unknown")}</div>
       <div style="font-size:.78em;opacity:.6;margin-top:4px">${escapeHtml(ep.api_base || "")}</div>
     </div>`,
@@ -104,21 +105,21 @@ export function buildHealthDashboardHtml(data: HealthDashboardData): string {
       .map(
         (ep) => `
     <div class="health-card unhealthy">
-      <div class="health-icon">\u274C</div>
+      <div class="health-icon">${materialIcon("cancel", 24)}</div>
       <div class="endpoint-name">${escapeHtml(ep.model || "unknown")}</div>
       <div style="font-size:.78em;opacity:.6;margin-top:4px">${escapeHtml(ep.api_base || "")}</div>
     </div>`,
       )
       .join("")}
   </div>`
-      : '<div class="empty-state"><span class="empty-icon">\u{1F4E1}</span><div class="empty-text">No model health data.</div></div>'
+      : '<div class="empty-state"><span class="empty-icon">${materialIcon("health", 32)}</span><div class="empty-text">No model health data.</div></div>'
   }
 </div>
 
 <!-- Readiness -->
 <div class="card">
-  <h3>\u{1F4E6} Proxy Readiness</h3>
-  ${readinessError ? `<div class="error-box">\u26A0 ${escapeHtml(readinessError)}</div>` : ""}
+  <h3>${materialIcon("storage", 18)} Proxy Readiness</h3>
+  ${readinessError ? `<div class="error-box">${materialIcon("warning", 16)} ${escapeHtml(readinessError)}</div>` : ""}
   ${
     readiness
       ? `
@@ -138,14 +139,14 @@ export function buildHealthDashboardHtml(data: HealthDashboardData): string {
       ? `<p style="font-size:.78em;opacity:.5;margin-top:4px">Last updated: ${new Date(readiness.last_updated).toLocaleString()}</p>`
       : ""
   }`
-      : '<div class="empty-state"><span class="empty-icon">\u{1F4E6}</span><div class="empty-text">No readiness data.</div></div>'
+      : '<div class="empty-state"><span class="empty-icon">${materialIcon("storage", 32)}</span><div class="empty-text">No readiness data.</div></div>'
   }
 </div>
 
 <!-- Key Health -->
 <div class="card">
-  <h3>\u{1F3AF} Key Health</h3>
-  ${keyHealthError ? `<div class="error-box">\u26A0 ${escapeHtml(keyHealthError)}</div>` : ""}
+  <h3>${materialIcon("build", 18)} Key Health</h3>
+  ${keyHealthError ? `<div class="error-box">${materialIcon("warning", 16)} ${escapeHtml(keyHealthError)}</div>` : ""}
   ${
     keyHealth
       ? `<div class="grid">
@@ -155,14 +156,14 @@ export function buildHealthDashboardHtml(data: HealthDashboardData): string {
     <div class="stat"><div class="stat-value">${keyHealth.key_alias || keyHealth.key_name || "\u2014"}</div><div class="stat-label">Key Alias</div></div>
   </div>
   ${keyHealth.last_accessed ? `<p style="font-size:.82em;opacity:.65;margin-top:8px">Last accessed: ${new Date(keyHealth.last_accessed).toLocaleString()}</p>` : ""}`
-      : '<div class="empty-state"><span class="empty-icon">\u{1F3AF}</span><div class="empty-text">No key health data.</div></div>'
+      : '<div class="empty-state"><span class="empty-icon">${materialIcon("build", 32)}</span><div class="empty-text">No key health data.</div></div>'
   }
 </div>
 
 <!-- Activity Exceptions -->
 <div class="card">
-  <h3>\u26A0 Activity Exceptions</h3>
-  ${exceptionsError ? `<div class="error-box">\u26A0 ${escapeHtml(exceptionsError)}</div>` : ""}
+  <h3>${materialIcon("warning", 18)} Activity Exceptions</h3>
+  ${exceptionsError ? `<div class="error-box">${materialIcon("warning", 16)} ${escapeHtml(exceptionsError)}</div>` : ""}
   ${
     exceptions?.exceptions && exceptions.exceptions.length > 0
       ? `
@@ -177,7 +178,7 @@ export function buildHealthDashboardHtml(data: HealthDashboardData): string {
   </tr>`,
     )
     .join("")}</tbody></table></div>`
-      : '<div class="empty-state"><span class="empty-icon">\u2705</span><div class="empty-text">No exceptions detected.</div></div>'
+      : '<div class="empty-state"><span class="empty-icon">${materialIcon("check_circle", 32)}</span><div class="empty-text">No exceptions detected.</div></div>'
   }
 </div>
 

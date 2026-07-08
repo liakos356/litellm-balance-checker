@@ -1,4 +1,4 @@
-import { COMMON_CSS, buildThemeOverrides, escapeHtml, usd } from "../helpers";
+import { COMMON_CSS, buildThemeOverrides, escapeHtml, usd, materialIcon } from "../helpers";
 import { GlobalSpendProvidersResponse } from "../types";
 import { svgHBarChart, svgDonut } from "../helpers";
 
@@ -64,16 +64,16 @@ export function buildProviderSpendHtml(data: ProviderSpendData): string {
 </style>
 </head>
 <body>
-<h2>\u2601\uFE0F CoreLLM Provider Spend
+<h2>${materialIcon("cloud", 22)} CoreLLM Provider Spend
   <span class="title-actions">
-    <span class="theme-btn" id="themeBtn" title="Toggle theme">\u{1F3A8}</span>
-    <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">\u{1F4E5} CSV</button>
-    <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">\u{1F504} Refresh</button>
+    <span class="theme-btn" id="themeBtn" title="Toggle theme">${materialIcon("palette", 18)}</span>
+    <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">${materialIcon("download", 16)} CSV</button>
+    <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">${materialIcon("refresh", 16)} Refresh</button>
   </span>
 </h2>
 ${dateRange ? `<p style="font-size:.82em;opacity:.6;margin:0 0 12px">${escapeHtml(dateRange)}</p>` : ""}
 
-${error ? `<div class="error-box">\u26A0 ${escapeHtml(error)}</div>` : ""}
+${error ? `<div class="error-box">${materialIcon("warning", 16)} ${escapeHtml(error)}</div>` : ""}
 
 <div class="summary-bar">
   <div class="summary-item"><div class="summary-value">${usd(totalSpend, 4)}</div><div class="summary-label">Total Spend</div></div>
@@ -86,7 +86,7 @@ ${
   providerList.length > 0
     ? `
 <div class="card">
-  <h3>\u{1F4CA} Spend by Provider</h3>
+  <h3>${materialIcon("bar_chart", 18)} Spend by Provider</h3>
   <div class="chart-row" style="align-items:center">
     ${donutChart}
     <div style="flex:1;min-width:300px">${barChart}</div>
@@ -94,7 +94,7 @@ ${
 </div>
 
 <div class="card">
-  <h3>\u{1F4CB} Provider Details</h3>
+  <h3>${materialIcon("preview", 18)} Provider Details</h3>
   <div class="table-wrap"><table><thead><tr><th>Provider</th><th>Spend</th><th>Tokens</th><th>Requests</th><th>Cost/Token</th></tr></thead>
   <tbody>${providerList
     .map((p) => {
@@ -113,7 +113,7 @@ ${
     })
     .join("")}</tbody></table></div>
 </div>`
-    : '<div class="empty-state"><span class="empty-icon">\u2601\uFE0F</span><div class="empty-text">No provider spend data available for this period.</div></div>'
+    : '<div class="empty-state"><span class="empty-icon">${materialIcon("cloud", 32)}</span><div class="empty-text">No provider spend data available for this period.</div></div>'
 }
 
 <div class="footer">

@@ -7,6 +7,7 @@ import {
   getRelativeTime,
   svgLineChart,
   svgDonut,
+  materialIcon,
 } from "../helpers";
 import {
   KeyInfoResponse,
@@ -141,11 +142,11 @@ export function buildUnifiedDashboardHtml(data: UnifiedDashboardData): string {
     keyInfo?.key_alias || keyInfo?.key_name || keyInfo?.key || "\u2014";
 
   const tabs = [
-    { id: "overview", label: "\u{1F4CA} Overview" },
-    { id: "spend", label: "\u{1F4B0} Spend" },
-    { id: "health", label: "\u{1F3E5} Health" },
-    { id: "providers", label: "\u2601\uFE0F Providers" },
-    { id: "models", label: "\u{1F916} Models" },
+    { id: "overview", label: `${materialIcon("dashboard", 18)} Overview` },
+    { id: "spend", label: `${materialIcon("payments", 18)} Spend` },
+    { id: "health", label: `${materialIcon("health", 18)} Health` },
+    { id: "providers", label: `${materialIcon("cloud", 18)} Providers` },
+    { id: "models", label: `${materialIcon("smart_toy", 18)} Models` },
   ];
 
   return `<!DOCTYPE html>
@@ -156,11 +157,11 @@ export function buildUnifiedDashboardHtml(data: UnifiedDashboardData): string {
 <style>${COMMON_CSS}${themeOverride}</style>
 </head>
 <body>
-<h2>\u{1F3DB}\uFE0F CoreLLM Dashboard
+<h2>${materialIcon("dashboard", 22)} CoreLLM Dashboard
   <span class="title-actions">
-    <span class="theme-btn" id="themeBtn" title="Toggle theme">\u{1F3A8}</span>
-    <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">\u{1F4E5}</button>
-    <button class="toolbar-btn primary" id="refreshBtn" title="Refresh all">\u{1F504} Refresh</button>
+    <span class="theme-btn" id="themeBtn" title="Toggle theme">${materialIcon("palette", 18)}</span>
+    <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">${materialIcon("download", 16)} CSV</button>
+    <button class="toolbar-btn primary" id="refreshBtn" title="Refresh all">${materialIcon("refresh", 16)} Refresh</button>
   </span>
 </h2>
 
@@ -178,7 +179,7 @@ export function buildUnifiedDashboardHtml(data: UnifiedDashboardData): string {
 <div class="toast" id="toast"></div>
 
 <!-- Admin permissions banner -->
-${isPermissionsIssue ? `<div class="admin-banner">\u26A0\uFE0F Limited view: some dashboard features require an admin/proxy master key. <span class="admin-banner-link" onclick="vscode.postMessage({type:'openSettings'})">Configure in settings</span></div>` : ""}
+${isPermissionsIssue ? `<div class="admin-banner">${materialIcon("warning", 18)} Limited view: some dashboard features require an admin/proxy master key. <span class="admin-banner-link" onclick="vscode.postMessage({type:'openSettings'})">Configure in settings</span></div>` : ""}
 
 <!-- ========================= OVERVIEW TAB ========================= -->
 <div class="tab-content${activeTab === "overview" ? " active" : ""}" id="tab-overview">
@@ -193,8 +194,8 @@ ${isPermissionsIssue ? `<div class="admin-banner">\u26A0\uFE0F Limited view: som
 
 <!-- Key info -->
 <div class="card">
-  <h3>\u{1F511} Key: ${escapeHtml(alias)}</h3>
-  ${keyError ? `<div class="error-box">\u26A0 ${escapeHtml(keyError)}</div>` : ""}
+  <h3>${materialIcon("key", 18)} Key: ${escapeHtml(alias)}</h3>
+  ${keyError ? `<div class="error-box">${materialIcon("warning", 16)} ${escapeHtml(keyError)}</div>` : ""}
   <div class="grid">
     <div class="stat"><div class="stat-value">${usd(spend, 4)}</div><div class="stat-label">Spend</div></div>
     <div class="stat"><div class="stat-value">${usd(maxB)}</div><div class="stat-label">Budget</div></div>
@@ -207,7 +208,7 @@ ${isPermissionsIssue ? `<div class="admin-banner">\u26A0\uFE0F Limited view: som
 <!-- Forecast -->
 ${forecastSpend > 0
   ? `<div class="card">
-  <h3>\u{1F52E} 30-Day Forecast</h3>
+  <h3>${materialIcon("trending_up", 18)} 30-Day Forecast</h3>
   <div class="grid">
     <div class="stat"><div class="stat-value">${usd(forecastSpend)}</div><div class="stat-label">Projected Spend</div></div>
     <div class="stat"><div class="stat-value ${maxB != null && forecastSpend > maxB ? "err" : "ok"}">${maxB != null && maxB > 0 ? ((forecastSpend / maxB) * 100).toFixed(1) + "% of budget" : "No budget"}</div><div class="stat-label">Budget Impact</div></div>
@@ -218,13 +219,13 @@ ${forecastSpend > 0
 <!-- Spend trend -->
 ${
   dailyChart
-    ? `<div class="card"><h3>\u{1F4C8} Spend Trend</h3>${dailyChart}</div>`
+    ? `<div class="card"><h3>${materialIcon("bar_chart", 18)} Spend Trend</h3>${dailyChart}</div>`
     : ""
 }
 
 <!-- Health quick view -->
 <div class="card">
-  <h3>\u{1F3E5} Health at a Glance</h3>
+  <h3>${materialIcon("health", 18)} Health at a Glance</h3>
   <div class="grid">
     <div class="stat"><div class="stat-value ok">${healthyCount}</div><div class="stat-label">Healthy</div></div>
     <div class="stat"><div class="stat-value ${unhealthyCount > 0 ? "err" : "ok"}">${unhealthyCount}</div><div class="stat-label">Unhealthy</div></div>
@@ -244,13 +245,13 @@ ${
 </div>
 ${
   dailyChart
-    ? `<div class="card"><h3>\u{1F4C8} Daily Spend Trend</h3>${dailyChart}</div>`
+    ? `<div class="card"><h3>${materialIcon("bar_chart", 18)} Daily Spend Trend</h3>${dailyChart}</div>`
     : ""
 }
 ${
   spendLogs.length > 0
     ? `<div class="card">
-  <h3>\u{1F4CB} Recent Spend</h3>
+  <h3>${materialIcon("preview", 18)} Recent Spend</h3>
   <div class="table-wrap"><table><thead><tr><th>Time</th><th>Model</th><th>Type</th><th>Spend</th><th>Tokens</th></tr></thead>
   <tbody>${spendLogs
     .slice(0, 10)
@@ -273,8 +274,8 @@ ${
 
 <!-- ========================= HEALTH TAB ========================= -->
 <div class="tab-content${activeTab === "health" ? " active" : ""}" id="tab-health">
-${healthError && !isPermissionsIssue ? `<div class="error-box">\u26A0 ${escapeHtml(healthError)}</div>` : ""}
-${readinessError && !isPermissionsIssue ? `<div class="error-box">\u26A0 ${escapeHtml(readinessError)}</div>` : ""}
+${healthError && !isPermissionsIssue ? `<div class="error-box">${materialIcon("warning", 16)} ${escapeHtml(healthError)}</div>` : ""}
+${readinessError && !isPermissionsIssue ? `<div class="error-box">${materialIcon("warning", 16)} ${escapeHtml(readinessError)}</div>` : ""}
 
 <div class="summary-bar">
   <div class="summary-item"><div class="summary-value ok">${healthyCount}</div><div class="summary-label">Healthy</div></div>
@@ -287,13 +288,13 @@ ${
   health
     ? `
 <div class="card">
-  <h3>\u{1F4E1} Model Endpoints</h3>
+  <h3>${materialIcon("health", 18)} Model Endpoints</h3>
   <div class="health-grid">
     ${(health.healthy_endpoints ?? [])
       .map(
         (ep) => `
     <div class="health-card healthy">
-      <div class="health-icon">\u2705</div>
+      <div class="health-icon">${materialIcon("check_circle", 24)}</div>
       <div class="endpoint-name">${escapeHtml(ep.model || "unknown")}</div>
     </div>`,
       )
@@ -302,20 +303,20 @@ ${
       .map(
         (ep) => `
     <div class="health-card unhealthy">
-      <div class="health-icon">\u274C</div>
+      <div class="health-icon">${materialIcon("cancel", 24)}</div>
       <div class="endpoint-name">${escapeHtml(ep.model || "unknown")}</div>
     </div>`,
       )
       .join("")}
   </div>
 </div>`
-    : '<div class="empty-state"><span class="empty-icon">\u{1F4E1}</span><div class="empty-text">No health data.</div></div>'
+    : '<div class="empty-state"><span class="empty-icon">${materialIcon("health", 32)}</span><div class="empty-text">No health data.</div></div>'
 }
 
 ${
   readiness
     ? `<div class="card">
-  <h3>\u{1F4E6} Readiness</h3>
+  <h3>${materialIcon("storage", 18)} Readiness</h3>
   <div class="grid">
     <div class="stat"><div class="stat-value">${readiness.db ?? "\u2014"}</div><div class="stat-label">DB</div></div>
     <div class="stat"><div class="stat-value">${readiness.cache ?? "\u2014"}</div><div class="stat-label">Cache</div></div>
@@ -332,7 +333,7 @@ ${
   <div class="summary-item"><div class="summary-value">${usd(totalProviderSpend, 4)}</div><div class="summary-label">Provider Spend</div></div>
   <div class="summary-item"><div class="summary-value">${providerList.length}</div><div class="summary-label">Providers</div></div>
 </div>
-${providerSpendError && !isPermissionsIssue ? `<div class="error-box">\u26A0 ${escapeHtml(providerSpendError)}</div>` : ""}
+${providerSpendError && !isPermissionsIssue ? `<div class="error-box">${materialIcon("warning", 16)} ${escapeHtml(providerSpendError)}</div>` : ""}
 ${
   providerList.length > 0
     ? `
@@ -349,7 +350,7 @@ ${
     )
     .join("")}</tbody></table></div>
 </div>`
-    : '<div class="empty-state"><span class="empty-icon">\u2601\uFE0F</span><div class="empty-text">No provider data.</div></div>'
+    : '<div class="empty-state"><span class="empty-icon">${materialIcon("cloud", 32)}</span><div class="empty-text">No provider data.</div></div>'
 }
 </div>
 
@@ -359,7 +360,7 @@ ${
   modelChartData.length > 0
     ? `
 <div class="card">
-  <h3>\u{1F4CA} Model Spend Breakdown</h3>
+  <h3>${materialIcon("bar_chart", 18)} Model Spend Breakdown</h3>
   <div class="chart-row" style="align-items:center">
     ${modelDonut}
     <div class="legend">
@@ -375,7 +376,7 @@ ${
     </div>
   </div>
 </div>`
-    : '<div class="empty-state"><span class="empty-icon">\u{1F916}</span><div class="empty-text">No model usage data.</div></div>'
+    : '<div class="empty-state"><span class="empty-icon">${materialIcon("smart_toy", 32)}</span><div class="empty-text">No model usage data.</div></div>'
 }
 </div>
 
