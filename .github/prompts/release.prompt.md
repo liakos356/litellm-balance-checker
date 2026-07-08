@@ -62,7 +62,19 @@ Run `./deploy-local.sh`. This will:
 - Build a new `.vsix` with `npx @vscode/vsce package`
 - Open Brave Browser to the Marketplace publisher page
 
-## 8. Git commit & tag
+## 8. Install locally (no Marketplace wait)
+
+Install the freshly built VSIX directly into VS Code so the user gets the update immediately, without waiting for Marketplace approval:
+
+```bash
+code --install-extension corellm-<NEW_VERSION>.vsix
+```
+
+Then tell the user to **reload VS Code** (Cmd+Shift+P → `Developer: Reload Window`) to activate the new version.
+
+> **Note:** This installs the extension for immediate local use. The Marketplace upload (step 7) is still needed for other users to receive the update.
+
+## 9. Git commit & tag
 
 ```bash
 git add -A
