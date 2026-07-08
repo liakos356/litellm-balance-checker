@@ -92,7 +92,7 @@ Logs in via `POST /login`, extracts the embedded `sk-...` key from the JWT sessi
 | `adminKey` | `""` | Proxy admin key for management API calls |
 | `username` | `""` | UI username — logs in and extracts session key |
 | `password` | `""` | UI password |
-| `endpoint` | `http://core.llm` | LiteLLM proxy base URL |
+| `endpoint` | `http://localhost:4000` | LiteLLM proxy base URL |
 | `refreshInterval` | `60` | Polling interval in seconds (min 5, 0 = off) |
 | `showKeyAlias` | `true` | Show key alias next to the balance |
 | `showSpendLogs` | `false` | Append recent spend total to status bar |

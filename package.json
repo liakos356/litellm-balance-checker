@@ -2,8 +2,8 @@
   "name": "corellm",
   "displayName": "CoreLLM",
   "description": "Monitor LiteLLM API key balances, budgets, and usage directly from VS Code status bar",
-  "version": "0.8.8",
-  "publisher": "litellm-tools",
+  "version": "0.8.9",
+  "publisher": "CoreInnovation",
   "icon": "docs/logo.png",
   "license": "MIT",
   "repository": {
@@ -185,8 +185,8 @@
         },
         "corellm.endpoint": {
           "type": "string",
-          "default": "http://core.llm",
-          "description": "The LiteLLM proxy endpoint URL (e.g., http://localhost:4000 or http://core.llm)"
+          "default": "http://localhost:4000",
+          "description": "The LiteLLM proxy endpoint URL (e.g., http://localhost:4000)"
         },
         "corellm.refreshInterval": {
           "type": "number",

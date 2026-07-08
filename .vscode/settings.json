@@ -4,7 +4,7 @@
   // Option B: Username/password (auto-extracts session key)
   // "corellm.username": "your@email.com",
   // "corellm.password": "your-password",
-  "corellm.endpoint": "http://core.llm",
+  "corellm.endpoint": "http://localhost:4000",
   "corellm.refreshInterval": 60,
   "corellm.showKeyAlias": true,
   "corellm.budgetWarningThreshold": 20

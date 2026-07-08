@@ -9,7 +9,7 @@ export function getConfig(): ExtensionConfig {
     username: cfg.get<string>("username", ""),
     password: cfg.get<string>("password", ""),
     endpoint: cfg
-      .get<string>("endpoint", "http://core.llm")
+      .get<string>("endpoint", "http://localhost:4000")
       .replace(/\/+$/, ""),
     refreshInterval: cfg.get<number>("refreshInterval", 60),
     showKeyAlias: cfg.get<boolean>("showKeyAlias", true),

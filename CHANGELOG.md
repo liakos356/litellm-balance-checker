@@ -2,6 +2,12 @@
 
 All notable changes to the CoreLLM VS Code extension.
 
+## 0.8.9
+
+- **Security:** Redact sensitive headers (Authorization, API keys, cookies) from Request Logs to prevent credential exposure
+- **Security:** Redact sensitive JSON fields (key, token, password) from logged response bodies
+- **Security:** Change default endpoint from `http://core.llm` to `http://localhost:4000` to prevent accidental connections to an external domain
+
 ## 0.8.8
 
 - **Changed:** Extension icon now uses `docs/logo.png`

@@ -152,6 +152,60 @@ export class CoreLLMApiClient {
 
   // ── Generic GET / POST helpers ──────────────────────────────────────────
 
+  /** Redact sensitive header values (auth tokens, API keys) before logging. */
+  private static REDACT_HEADERS = new Set([
+    "authorization",
+    "x-litellm-api-key",
+    "cookie",
+    "set-cookie",
+    "x-api-key",
+    "proxy-authorization",
+  ]);
+
+  private static redactHeaders(headers: Record<string, string>): Record<string, string> {
+    const redacted: Record<string, string> = {};
+    for (const [k, v] of Object.entries(headers)) {
+      if (CoreLLMApiClient.REDACT_HEADERS.has(k.toLowerCase())) {
+        redacted[k] = v.length > 20 ? v.slice(0, 8) + "..." + v.slice(-4) : "***REDACTED***";
+      } else {
+        redacted[k] = v;
+      }
+    }
+    return redacted;
+  }
+
+  /** Redact sensitive fields from JSON response bodies (e.g. API keys in /key/info). */
+  private static SENSITIVE_JSON_KEYS = new Set([
+    "key", "token", "api_key", "apiKey", "secret", "password",
+    "master_key", "proxy_master_key", "litellm_master_key",
+  ]);
+
+  private static redactJsonBody(body: string): string {
+    try {
+      const obj = JSON.parse(body);
+      CoreLLMApiClient.redactJsonObject(obj);
+      return JSON.stringify(obj);
+    } catch {
+      // Not valid JSON — return as-is (it's already truncated anyway)
+      return body;
+    }
+  }
+
+  private static redactJsonObject(obj: unknown, depth = 0): void {
+    if (depth > 10 || obj == null || typeof obj !== "object") return;
+    if (Array.isArray(obj)) {
+      for (const item of obj) CoreLLMApiClient.redactJsonObject(item, depth + 1);
+      return;
+    }
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+      if (CoreLLMApiClient.SENSITIVE_JSON_KEYS.has(k) && typeof v === "string" && v.length > 0) {
+        (obj as Record<string, unknown>)[k] = v.length > 20 ? v.slice(0, 8) + "..." + v.slice(-4) : "***REDACTED***";
+      } else if (typeof v === "object") {
+        CoreLLMApiClient.redactJsonObject(v, depth + 1);
+      }
+    }
+  }
+
   private logRequest(
     method: string,
     path: string,
@@ -165,16 +219,19 @@ export class CoreLLMApiClient {
   ): void {
     if (!this.enableRequestLogging) return;
     CoreLLMApiClient.logCounter++;
+    // Redact sensitive data before storing in memory
+    const safeHeaders = CoreLLMApiClient.redactHeaders(reqHeaders);
+    const safeResBody = CoreLLMApiClient.redactJsonBody(resBody);
     CoreLLMApiClient.requestLogs.unshift({
       id: CoreLLMApiClient.logCounter,
       timestamp: new Date().toISOString(),
       method,
       path,
       fullUrl,
-      requestHeaders: { ...reqHeaders },
+      requestHeaders: safeHeaders,
       requestBody: reqBody,
       responseStatus: resStatus,
-      responseBody: resBody,
+      responseBody: safeResBody,
       durationMs,
       error,
     });

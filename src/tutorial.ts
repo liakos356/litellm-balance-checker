@@ -11,7 +11,7 @@ function escapeHtml(s: string): string {
 
 // ─── Tutorial / Getting Started Panel HTML ───────────────────────────────────
 
-const CURRENT_VERSION = '0.8.8';
+const CURRENT_VERSION = '0.8.9';
 
 export function buildTutorialHtml(activeTheme?: string): string {
   const theme = activeTheme || 'vscode';
@@ -124,7 +124,7 @@ export function buildTutorialHtml(activeTheme?: string): string {
       <div class="auth-icon">${materialIcon("person", 28)}</div>
       <h4>Username / Password Login</h4>
       <p>Automatically logs into the LiteLLM UI and extracts the embedded session key.</p>
-      <div class="code-block">"corellm.username": "you@company.com"<br>"corellm.password": "your-password"<br>"corellm.endpoint": "http://core.llm"</div>
+      <div class="code-block">"corellm.username": "you@company.com"<br>"corellm.password": "your-password"<br>"corellm.endpoint": "http://localhost:4000"</div>
       <div class="check-item">${materialIcon("check_circle", 14)} No need to manage raw API keys</div>
       <div class="check-item">${materialIcon("check_circle", 14)} Key is extracted from JWT session cookie</div>
       <div class="cross-item">${materialIcon("cancel", 14)} Requires <code>POST /login</code> to be enabled on your proxy</div>
@@ -270,7 +270,7 @@ export function buildTutorialHtml(activeTheme?: string): string {
       <tr><td><code>adminKey</code></td><td><code>""</code></td><td>Proxy admin key for management endpoints</td></tr>
       <tr><td><code>username</code></td><td><code>""</code></td><td>UI username (login-based auth)</td></tr>
       <tr><td><code>password</code></td><td><code>""</code></td><td>UI password (stored securely)</td></tr>
-      <tr><td><code>endpoint</code></td><td><code>http://core.llm</code></td><td>LiteLLM proxy base URL</td></tr>
+      <tr><td><code>endpoint</code></td><td><code>http://localhost:4000</code></td><td>LiteLLM proxy base URL</td></tr>
       <tr><td><code>refreshInterval</code></td><td><code>60</code></td><td>Polling interval in seconds (min 5, 0 = off)</td></tr>
       <tr><td><code>showKeyAlias</code></td><td><code>true</code></td><td>Show key alias next to balance in status bar</td></tr>
       <tr><td><code>showSpendLogs</code></td><td><code>false</code></td><td>Append recent spend total to status bar</td></tr>
