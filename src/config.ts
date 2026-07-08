@@ -19,7 +19,6 @@ export function getConfig(): ExtensionConfig {
     reportDuration: cfg.get<ReportDuration>("reportDuration", "7d"),
     reportCustomStart: cfg.get<string>("reportCustomStart", ""),
     reportCustomEnd: cfg.get<string>("reportCustomEnd", ""),
-    updateCheckInterval: cfg.get<number>("updateCheckInterval", 24),
     webviewTheme: cfg.get<string>("webviewTheme", "vscode"),
     showTeamSpend: cfg.get<boolean>("showTeamSpend", false),
     showGlobalSpend: cfg.get<boolean>("showGlobalSpend", false),

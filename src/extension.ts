@@ -1,6 +1,4 @@
 import * as vscode from "vscode";
-import * as os from "os";
-import * as fs from "fs";
 import { buildTutorialHtml, buildChangelogHtml } from "./tutorial";
 import { getConfig, getDateRange } from "./config";
 import { CoreLLMApiClient } from "./client";
@@ -31,6 +29,7 @@ import { buildHealthDashboardHtml, getLoadingHtml as healthLoading } from "./pan
 import { buildProviderSpendHtml } from "./panels/providerSpend";
 import { buildUserManagerHtml } from "./panels/userManager";
 import { buildUnifiedDashboardHtml, getLoadingHtml as dashboardLoading } from "./panels/unifiedDashboard";
+import { buildWelcomeHtml } from "./panels/welcome";
 import {
   KeyInfoResponse,
   SpendLogEntry,
@@ -1397,6 +1396,7 @@ class BalanceStatusBarManager {
   private userManagerPanel: vscode.WebviewPanel | undefined;
   private unifiedDashboardPanel: vscode.WebviewPanel | undefined;
   private requestLogsPanel: vscode.WebviewPanel | undefined;
+  private welcomePanel: vscode.WebviewPanel | undefined;
 
   // ── Display Cycling ──────────────────────────────────────────────────
   private displayCycleIndex = 0;
@@ -1501,6 +1501,9 @@ class BalanceStatusBarManager {
       ),
       vscode.commands.registerCommand("corellm.showChangelog", () =>
         this.openChangelog(),
+      ),
+      vscode.commands.registerCommand("corellm.showWelcome", () =>
+        this.openWelcome(),
       ),
       vscode.commands.registerCommand("corellm.showGlobalSpend", () =>
         this.openGlobalSpend(),
@@ -2071,6 +2074,56 @@ class BalanceStatusBarManager {
   private refreshChangelog(): void {
     if (!this.changelogPanel) return;
     this.changelogPanel.webview.html = buildChangelogHtml(this.activeTheme);
+  }
+
+  // ── Welcome Screen ────────────────────────────────────────────────────
+
+  public openWelcome(): void {
+    if (this.welcomePanel) {
+      this.welcomePanel.reveal(vscode.ViewColumn.One);
+      return;
+    }
+
+    this.welcomePanel = vscode.window.createWebviewPanel(
+      "corellmWelcome",
+      "CoreLLM Welcome",
+      vscode.ViewColumn.One,
+      { enableScripts: true },
+    );
+    this.welcomePanel.onDidDispose(() => {
+      this.welcomePanel = undefined;
+    });
+    this.welcomePanel.webview.onDidReceiveMessage((msg) => {
+      switch (msg.type) {
+        case "setTheme":
+          this.activeTheme = msg.theme;
+          if (this.welcomePanel) this.refreshWelcome();
+          if (this.budgetOverviewPanel) this.refreshBudgetOverview();
+          if (this.spendLogsPanel) this.refreshSpendLogsPanel();
+          if (this.keyListPanel) this.refreshKeyListPanel();
+          if (this.tutorialPanel) this.refreshTutorial();
+          if (this.changelogPanel) this.refreshChangelog();
+          break;
+        case "openSettings":
+          vscode.commands.executeCommand(
+            "workbench.action.openSettings",
+            "@ext:litellm-tools.corellm",
+          );
+          break;
+        case "openBudgetOverview":
+          this.openBudgetOverview();
+          break;
+        case "openTutorial":
+          this.openTutorial();
+          break;
+      }
+    });
+    this.refreshWelcome();
+  }
+
+  private refreshWelcome(): void {
+    if (!this.welcomePanel) return;
+    this.welcomePanel.webview.html = buildWelcomeHtml(this.activeTheme);
   }
 
   // ── Global Spend Panel ──────────────────────────────────────────────────
@@ -3582,271 +3635,18 @@ class BalanceStatusBarManager {
 // ─── Activation ──────────────────────────────────────────────────────────────
 
 let manager: BalanceStatusBarManager | undefined;
-let updateTimer: NodeJS.Timeout | undefined;
 
 // ─── Update Checker ─────────────────────────────────────────────────────────
 
 const EXTENSION_ID = "litellm-tools.corellm";
-const GITHUB_REPO = "core-innovation/litellm-balance-checker";
-const CURRENT_VERSION = "0.8.10";
-const LAST_NOTIFIED_KEY = "corellm.lastNotifiedVersion";
+const CURRENT_VERSION = "0.8.11";
 const LAST_SEEN_VERSION_KEY = "corellm.lastSeenVersion";
-
-/** Create a fetch signal that aborts after ms milliseconds.
- *  Avoids AbortSignal.timeout() which may not be available in VS Code's bundled Node. */
-function createTimeoutSignal(ms: number): { signal: AbortSignal; clear: () => void } {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), ms);
-  return { signal: controller.signal, clear: () => clearTimeout(timer) };
-}
-
-/** Check if a GitHub API response indicates rate limiting. */
-function isRateLimited(status: number, body: string): boolean {
-  if (status !== 403 && status !== 429) return false;
-  return /rate limit|too many requests/i.test(body);
-}
-
-/** Try to fetch the latest tag from tags API (fallback when no releases exist). */
-async function fetchLatestTagFromTags(): Promise<{
-  tag: string;
-  releaseUrl: string;
-} | null> {
-  const { signal, clear } = createTimeoutSignal(8000);
-  const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/tags`, {
-    headers: {
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "corellm-vscode",
-    },
-    signal,
-  });
-  clear();
-  if (!res.ok) return null;
-  const tags = (await res.json()) as Array<{ name: string }>;
-  if (!tags || tags.length === 0) return null;
-  // Find the newest tag matching v* or just the first one
-  const versionTags = tags
-    .filter((t) => /^v?\d/.test(t.name))
-    .sort((a, b) => {
-      const va = a.name.replace(/^v/, "");
-      const vb = b.name.replace(/^v/, "");
-      return compareVersions(vb, va); // newest first
-    });
-  const best = versionTags[0] || tags[0];
-  const tag = best.name.replace(/^v/, "");
-  const releaseUrl = `https://github.com/${GITHUB_REPO}/releases/tag/v${tag}`;
-  return { tag, releaseUrl };
-}
-
-async function checkForUpdates(
-  context: vscode.ExtensionContext,
-  showUpToDate = false,
-): Promise<void> {
-  try {
-    // Try releases/latest first
-    const { signal, clear } = createTimeoutSignal(8000);
-    const releaseRes = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`,
-      {
-        headers: {
-          Accept: "application/vnd.github.v3+json",
-          "User-Agent": "corellm-vscode",
-        },
-        signal,
-      },
-    );
-    clear();
-
-    // Handle GitHub API errors gracefully
-    if (!releaseRes.ok) {
-      const bodyText = await releaseRes.text().catch(() => "");
-      const rateLimited = isRateLimited(releaseRes.status, bodyText);
-
-      if (rateLimited) {
-        console.warn(`CoreLLM update check: GitHub API rate limited (${releaseRes.status})`);
-        if (showUpToDate) {
-          vscode.window.showWarningMessage(
-            "Could not check for updates: GitHub API rate limit reached. Try again later.",
-          );
-        }
-        return;
-      }
-
-      // Non-rate-limit error (404, etc.) — fall through to tags fallback
-      console.log(
-        `CoreLLM update check: releases/latest returned ${releaseRes.status}, falling back to tags`,
-      );
-    }
-
-    let latestTag: string | null = null;
-    let vsixDownloadUrl: string | null = null;
-    let releaseUrl: string | null = null;
-
-    if (releaseRes.ok) {
-      const data = (await releaseRes.json()) as {
-        tag_name?: string;
-        html_url?: string;
-        name?: string;
-        assets?: Array<{ name: string; browser_download_url: string }>;
-      };
-      const tag = (data.tag_name || data.name || "").replace(/^v/, "");
-      if (tag) {
-        latestTag = tag;
-        releaseUrl = data.html_url || null;
-        const vsixAsset = data.assets?.find((a) => a.name.endsWith(".vsix"));
-        vsixDownloadUrl = vsixAsset?.browser_download_url || null;
-      }
-    }
-
-    // Always check tags too — git tags may be newer than the latest GitHub Release
-    const tagInfo = await fetchLatestTagFromTags();
-    if (tagInfo) {
-      // If no release was found, or the latest tag is newer than the release, use the tag
-      if (!latestTag || compareVersions(tagInfo.tag, latestTag) > 0) {
-        latestTag = tagInfo.tag;
-        releaseUrl = tagInfo.releaseUrl;
-        // No direct VSIX download URL from tags — user will be directed to releases page
-        vsixDownloadUrl = null;
-      }
-    }
-
-    if (!latestTag) {
-      console.log("CoreLLM update check: no releases or tags found");
-      if (showUpToDate) {
-        vscode.window.showInformationMessage(
-          "Could not find any releases or version tags for CoreLLM.",
-        );
-      }
-      return;
-    }
-
-    console.log(
-      `CoreLLM update check: latest=${latestTag}, current=${CURRENT_VERSION}, result=${compareVersions(latestTag, CURRENT_VERSION) > 0 ? "update available" : "up to date"}`,
-    );
-
-    if (compareVersions(latestTag, CURRENT_VERSION) > 0) {
-      // Only notify once per version
-      const lastNotified = context.globalState.get<string>(LAST_NOTIFIED_KEY);
-      if (lastNotified === latestTag) return;
-      await context.globalState.update(LAST_NOTIFIED_KEY, latestTag);
-
-      const releaseDisplayUrl = releaseUrl || `https://github.com/${GITHUB_REPO}/releases`;
-
-      // User-facing version string with "v" prefix
-      const latestDisplay = `v${latestTag}`;
-      const currentDisplay = `v${CURRENT_VERSION}`;
-
-      if (vsixDownloadUrl) {
-        // Full flow: download VSIX directly and install
-        const actions = ["Update & Reload", "Open Releases Page", "Dismiss"] as const;
-        const action = await vscode.window.showInformationMessage(
-          `CoreLLM ${latestDisplay} available! (current: ${currentDisplay})`,
-          ...actions,
-        );
-
-        if (action === "Update & Reload") {
-          let downloadFailed = false;
-          await vscode.window.withProgress(
-            {
-              location: vscode.ProgressLocation.Notification,
-              title: `Downloading CoreLLM ${latestDisplay}...`,
-            },
-            async () => {
-              try {
-                const dl = await fetch(vsixDownloadUrl!);
-                if (!dl.ok) throw new Error(`Download failed (HTTP ${dl.status})`);
-                const buf = Buffer.from(await dl.arrayBuffer());
-                const tmpPath = `${os.tmpdir()}/corellm-${latestTag}.vsix`;
-                fs.writeFileSync(tmpPath, buf);
-                await vscode.commands.executeCommand(
-                  "workbench.extensions.installExtension",
-                  vscode.Uri.file(tmpPath),
-                );
-              } catch (err) {
-                downloadFailed = true;
-                throw err;
-              }
-            },
-          );
-
-          if (downloadFailed) {
-            vscode.window.showErrorMessage(
-              `Failed to download CoreLLM ${latestDisplay}. Check your connection or download manually from the releases page.`,
-              "Open Releases Page",
-            ).then((sel) => {
-              if (sel) vscode.env.openExternal(vscode.Uri.parse(releaseDisplayUrl));
-            });
-          } else {
-            const reload = await vscode.window.showInformationMessage(
-              `CoreLLM ${latestDisplay} installed! Reload now to apply.`,
-              "Reload Now",
-            );
-            if (reload) {
-              vscode.commands.executeCommand("workbench.action.reloadWindow");
-            }
-          }
-        } else if (action === "Open Releases Page") {
-          vscode.env.openExternal(vscode.Uri.parse(releaseDisplayUrl));
-        }
-      } else {
-        // No direct VSIX download — open releases page
-        const actions = ["Open Releases Page", "Dismiss"] as const;
-        const action = await vscode.window.showInformationMessage(
-          `CoreLLM ${latestDisplay} available! (current: ${currentDisplay})`,
-          ...actions,
-        );
-        if (action === "Open Releases Page") {
-          vscode.env.openExternal(vscode.Uri.parse(releaseDisplayUrl));
-        }
-      }
-    } else if (showUpToDate) {
-      vscode.window.showInformationMessage(
-        `CoreLLM is up to date (v${CURRENT_VERSION}).`,
-      );
-    }
-  } catch (err) {
-    console.error("CoreLLM update check failed:", err);
-    if (showUpToDate) {
-      const msg = err instanceof Error ? err.message : String(err);
-      // Try to detect network vs other errors
-      if (/fetch|network|connect|dns|econnrefused|enotfound|timeout/i.test(msg)) {
-        vscode.window.showWarningMessage(
-          "Could not check for updates — you may be offline.",
-        );
-      } else {
-        vscode.window.showWarningMessage(
-          `Update check failed: ${msg}`,
-        );
-      }
-    }
-  }
-}
-
-/** Simple semver compare. Returns >0 if a>b, <0 if a<b, 0 if equal.
- *  Handles non-numeric segments gracefully (e.g. "1.0.0-beta" → NaN segments treated as 0). */
-function compareVersions(a: string, b: string): number {
-  const pa = a.split(".").map((s) => parseInt(s, 10) || 0);
-  const pb = b.split(".").map((s) => parseInt(s, 10) || 0);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const na = pa[i] ?? 0;
-    const nb = pb[i] ?? 0;
-    if (na !== nb) return na - nb;
-  }
-
-  return 0;
-}
 
 // ─── Activation ──────────────────────────────────────────────────────────────
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   try {
     console.log("CoreLLM activating...");
-
-  // Register update command
-  context.subscriptions.push(
-    vscode.commands.registerCommand("corellm.checkForUpdates", () =>
-      checkForUpdates(context, true),
-    ),
-  );
 
   // Migrate credentials from settings.json to SecretStorage (OS keychain)
   const migrated = await migrateFromSettings(context.secrets);
@@ -3878,13 +3678,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       });
   }
 
-  // Auto-show changelog on version upgrade
+  // Auto-show welcome on first install, changelog on version upgrade
   const lastSeen = context.globalState.get<string>(LAST_SEEN_VERSION_KEY);
   if (lastSeen !== CURRENT_VERSION) {
     setTimeout(() => {
       if (lastSeen) {
         // Upgrade detected — show what's new
         manager?.openChangelog();
+      } else {
+        // First install — show welcome screen
+        manager?.openWelcome();
       }
 
       // Update the last seen version
@@ -3894,14 +3697,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Ensure version is stored for fresh installs
     context.globalState.update(LAST_SEEN_VERSION_KEY, CURRENT_VERSION);
   }
-
-  // Check for updates on startup (silent)
-  setTimeout(() => checkForUpdates(context), 5000);
-
-  // Periodic update checks
-  const updateIntervalHours = getConfig().updateCheckInterval;
-  const updateIntervalMs = Math.max(3600000, updateIntervalHours * 3600000);
-  updateTimer = setInterval(() => checkForUpdates(context), updateIntervalMs);
 
   console.log("CoreLLM activated");
   } catch (err) {
@@ -3913,11 +3708,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 }
 
 export function deactivate(): void {
-  if (updateTimer) {
-    clearInterval(updateTimer);
-    updateTimer = undefined;
-  }
-
   if (manager) {
     manager.dispose();
     manager = undefined;

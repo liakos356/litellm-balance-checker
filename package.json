@@ -2,7 +2,7 @@
   "name": "corellm",
   "displayName": "CoreLLM",
   "description": "Monitor LiteLLM proxy balances, budgets, and usage — status bar spend tracking, rich dashboards, key health, team budgets, model pricing, CSV/PDF export",
-  "version": "0.8.10",
+  "version": "0.8.11",
   "publisher": "CoreInnovation",
   "icon": "docs/logo.png",
   "license": "MIT",
@@ -117,10 +117,6 @@
         "title": "CoreLLM: Set Report Duration"
       },
       {
-        "command": "corellm.checkForUpdates",
-        "title": "CoreLLM: Check for Updates"
-      },
-      {
         "command": "corellm.showAbout",
         "title": "CoreLLM: About"
       },
@@ -175,6 +171,10 @@
       {
         "command": "corellm.showUnifiedDashboard",
         "title": "CoreLLM: Show Dashboard"
+      },
+      {
+        "command": "corellm.showWelcome",
+        "title": "CoreLLM: Show Welcome Screen"
       },
       {
         "command": "corellm.showRequestLogs",
@@ -284,12 +284,6 @@
           "type": "string",
           "default": "",
           "description": "Custom end date (YYYY-MM-DD) for the spend report when reportDuration=custom."
-        },
-        "corellm.updateCheckInterval": {
-          "type": "number",
-          "default": 24,
-          "minimum": 1,
-          "description": "How often (in hours) to check for updates on GitHub. Checks once on startup regardless."
         },
         "corellm.webviewTheme": {
           "type": "string",

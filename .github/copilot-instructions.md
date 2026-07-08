@@ -22,7 +22,6 @@ src/
 │   ├── CoreLLMApiClient          # HTTP client (fetch-based) with caching + auth
 │   ├── BalanceStatusBarManager   # Status bar + all webview panels + commands
 │   ├── HTML builders             # Inline webview HTML generators
-│   ├── checkForUpdates()         # GitHub release/tag polling
 │   ├── activate() / deactivate() # Extension lifecycle
 │   └── CURRENT_VERSION           # Single source of truth for version
 └── tutorial.ts    # Tutorial & changelog HTML builders (~850 lines)
@@ -81,14 +80,14 @@ npx @vscode/vsce package  # Build .vsix (use Node 20+)
 
 ## Version Management
 
-> **CRITICAL: Bump the version on EVERY change or feature.** This ensures the extension can be updated on other machines by installing the latest VSIX.
+> **CRITICAL: Bump the version on EVERY change or feature.** The extension is published on the VS Code Marketplace — version bumps trigger automatic updates for users.
 
 ### Version locations (all three must always match)
 
 | File | Location | Field |
 |------|----------|-------|
-| `src/extension.ts` | ~line 3221 | `const CURRENT_VERSION = "X.Y.Z"` |
-| `src/tutorial.ts` | ~line 7 | `const CURRENT_VERSION = "X.Y.Z"` |
+| `src/extension.ts` | near top of file | `const CURRENT_VERSION = "X.Y.Z"` |
+| `src/tutorial.ts` | ~line 14 | `const CURRENT_VERSION = "X.Y.Z"` |
 | `package.json` | root | `"version": "X.Y.Z"` |
 
 ### Bump checklist (do this for EVERY change)
@@ -96,11 +95,9 @@ npx @vscode/vsce package  # Build .vsix (use Node 20+)
 1. **Determine bump:** `patch` (0.0.X) for fixes/tweaks, `minor` (0.X.0) for new features, `major` (X.0.0) for breaking changes.
 2. **Update all 3 version locations** above to the new version.
 3. **Add a `CHANGELOG.md` entry** under the new version heading.
-4. **Rebuild the VSIX:** `npx @vscode/vsce package` (use Node 20+ via `nvm use 20`).
-5. **Git tag:** `git tag vX.Y.Z` (force-push with `-f` if re-tagging).
-6. **Push everything:** `git push origin main --tags`
-
-This way, other machines can `git pull && git checkout vX.Y.Z` and install the updated `.vsix`.
+4. **Rebuild the VSIX for testing:** `npx @vscode/vsce package` (use Node 20+ via `nvm use 20`).
+5. **Git tag:** `git tag vX.Y.Z` and push: `git push origin main --tags`.
+6. **Publish to Marketplace:** `npx @vscode/vsce publish` (requires publisher token).
 
 ## LiteLLM API Endpoints Used
 
@@ -156,7 +153,6 @@ Auth priority: login-derived key → `adminKey` → `apiKey`.
 - After EVERY successful change:
   1. Bump the version (see [Version Management](#version-management) above).
   2. Commit the code changes.
-  3. Rebuild the VSIX with `npx @vscode/vsce package` (use Node 20+ via `nvm use 20`).
-  4. Tag the release: `git tag vX.Y.Z` (force-push with `-f` if re-tagging).
-  5. Push everything: `git push origin main --tags`
-- This ensures any other machine can `git pull && git checkout vX.Y.Z` and install the updated `.vsix`.
+  3. Push: `git push origin main`
+- Updates are delivered through the VS Code Marketplace — users get them automatically.
+- For local testing, rebuild the VSIX with `npx @vscode/vsce package` (use Node 20+ via `nvm use 20`).

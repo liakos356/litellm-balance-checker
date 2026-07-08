@@ -11,7 +11,7 @@ function escapeHtml(s: string): string {
 
 // ─── Tutorial / Getting Started Panel HTML ───────────────────────────────────
 
-const CURRENT_VERSION = '0.8.10';
+const CURRENT_VERSION = '0.8.11';
 
 export function buildTutorialHtml(activeTheme?: string): string {
   const theme = activeTheme || 'vscode';
@@ -196,7 +196,6 @@ export function buildTutorialHtml(activeTheme?: string): string {
       <tr><td><code>CoreLLM: Disable Auto-Refresh</code></td><td>Stop auto-refresh polling</td><td>\u2014</td></tr>
       <tr><td><code>CoreLLM: Set Report Duration</code></td><td>Choose time range for budget charts (1h/24h/7d/30d/custom)</td><td>\u2014</td></tr>
       <tr><td><code>CoreLLM: Open Settings</code></td><td>Jump directly to CoreLLM extension settings</td><td>\u2014</td></tr>
-      <tr><td><code>CoreLLM: Check for Updates</code></td><td>Check GitHub for newer versions</td><td>\u2014</td></tr>
       <tr><td><code>CoreLLM: About</code></td><td>Show version info</td><td>\u2014</td></tr>
       <tr class="cmd-highlight"><td><code>CoreLLM: Show Tutorial</code></td><td>Open this getting started guide</td><td>\u2014</td></tr>
       <tr><td><code>CoreLLM: Show Global Spend</code></td><td>Global spend breakdown by key, model, and team</td><td>\u2014</td></tr>
@@ -279,7 +278,6 @@ export function buildTutorialHtml(activeTheme?: string): string {
       <tr><td><code>reportDuration</code></td><td><code>"7d"</code></td><td>Time range for budget spend charts</td></tr>
       <tr><td><code>reportCustomStart</code></td><td><code>""</code></td><td>Custom start date (YYYY-MM-DD)</td></tr>
       <tr><td><code>reportCustomEnd</code></td><td><code>""</code></td><td>Custom end date (YYYY-MM-DD)</td></tr>
-      <tr><td><code>updateCheckInterval</code></td><td><code>24</code></td><td>Hours between GitHub update checks</td></tr>
       <tr><td><code>webviewTheme</code></td><td><code>"vscode"</code></td><td>Theme override for panels (vscode/light/dark/hc)</td></tr>
       <tr><td><code>showTeamSpend</code></td><td><code>false</code></td><td>Show team-level spend in the status bar</td></tr>
       <tr><td><code>showGlobalSpend</code></td><td><code>false</code></td><td>Show global spend totals in the status bar</td></tr>
@@ -446,9 +444,9 @@ export function buildTutorialHtml(activeTheme?: string): string {
 
   <div class="faq-item">
     <div class="faq-q" onclick="toggleFaq(this)">\u25B6 How do I update the extension?</div>
-    <div class="faq-a">Run <code>CoreLLM: Check for Updates</code> from the Command Palette.
-    If a new version is available, you can download it directly or install it with one click.
-    You can also check the <a href="https://github.com/core-innovation/litellm-balance-checker/releases" target="_blank">GitHub Releases</a> page.</div>
+    <div class="faq-a">CoreLLM is now available on the <a href="https://marketplace.visualstudio.com/items?itemName=CoreInnovation.corellm" target="_blank">VS Code Marketplace</a>.
+    VS Code will automatically check for and install updates through the Marketplace.
+    You can also manually check for updates from the Extensions view.</div>
   </div>
 
   <div class="faq-item">

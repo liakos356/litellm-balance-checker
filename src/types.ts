@@ -395,43 +395,96 @@ export const DURATION_MS: Record<ReportDuration, number | null> = {
 };
 
 export interface ExtensionConfig {
+  // ── Auth & Connection ──
   apiKey: string;
   adminKey: string;
   username: string;
   password: string;
   endpoint: string;
+
+  // ── Polling & Caching ──
+  /** Auto-refresh polling interval in seconds (0 = disabled). */
   refreshInterval: number;
-  showKeyAlias: boolean;
-  showSpendLogs: boolean;
-  budgetWarningThreshold: number;
-  keyToQuery: string;
-  reportDuration: ReportDuration;
-  reportCustomStart: string;
-  reportCustomEnd: string;
-  updateCheckInterval: number;
-  webviewTheme: string;
-  showTeamSpend: boolean;
-  showGlobalSpend: boolean;
-  showModelSpend: boolean;
+  /** Cache API results in memory (TTL = refreshInterval). */
   cacheResults: boolean;
-  spendAlertThreshold: number;
-  enableActivityMonitoring: boolean;
-  teamFilter: string;
-  defaultPanelTab: string;
+
+  // ── Status Bar ──
+  /** Show key alias/name alongside balance in the status bar. */
+  showKeyAlias: boolean;
+  /** Append recent spend info to the status bar tooltip. */
+  showSpendLogs: boolean;
+  /** Append team-level spend to the status bar tooltip. */
+  showTeamSpend: boolean;
+  /** Append global spend totals to the status bar tooltip. */
+  showGlobalSpend: boolean;
+  /** Status bar display mode: cycle | remaining | spend | usage-bar | budget. */
   statusBarDisplayMode: string;
-  healthCheckInterval: number;
-  enableHealthMonitoring: boolean;
-  healthAlertOnUnhealthy: boolean;
-  enableSpendForecast: boolean;
-  forecastDays: number;
-  enableBudgetAlerts: boolean;
-  budgetAlertThreshold: number;
-  enableDailySpendAlert: boolean;
-  dailySpendAlertThreshold: number;
-  enableProviderBreakdown: boolean;
+  /** Use a compact single-number status bar instead of the full label. */
   compactStatusBar: boolean;
-  dateFormat: string;
+
+  // ── Key & Team Targeting ──
+  /** Specific key ID to query (leave empty to query the authenticated key). */
+  keyToQuery: string;
+  /** Only show data for this team ID (leave empty for all teams). */
+  teamFilter: string;
+
+  // ── Budget & Spend Thresholds ──
+  /** Warning when REMAINING budget falls below this percent of max_budget (0-100). */
+  budgetWarningThreshold: number;
+  /** Alert when budget USAGE exceeds this percent (1-100). Separate from budgetWarningThreshold which is remaining-based. */
+  budgetAlertThreshold: number;
+  /** Show a VS Code notification when any single API request exceeds this USD amount (0 = disabled). */
+  spendAlertThreshold: number;
+
+  // ── Reports ──
+  /** Time range label for spend reports: 1h | 24h | 7d | 30d | custom. */
+  reportDuration: ReportDuration;
+  /** Custom start date (YYYY-MM-DD) when reportDuration = custom. */
+  reportCustomStart: string;
+  /** Custom end date (YYYY-MM-DD) when reportDuration = custom. */
+  reportCustomEnd: string;
+
+  // ── Dashboards & Views ──
+  /** Default tab when opening a dashboard panel: overview | global | teams | activity. */
+  defaultPanelTab: string;
+  /** Per-model spend breakdown in panel views. */
+  showModelSpend: boolean;
+  /** Per-provider spend breakdowns (OpenAI, Anthropic, etc.) in panels. */
+  enableProviderBreakdown: boolean;
+  /** Show CoreLLM sidebar tree view for quick access. */
   enableTreeView: boolean;
+  /** Auto-refresh tree view data on each poll. */
   treeViewAutoRefresh: boolean;
+  /** Theme override for webview panels: vscode | light | dark | hc. */
+  webviewTheme: string;
+
+  // ── Monitoring ──
+  /** Continuously poll /health endpoints for model availability. */
+  enableHealthMonitoring: boolean;
+  /** Health check polling interval in seconds (minimum 30). */
+  healthCheckInterval: number;
+  /** Show a VS Code notification when any model endpoint becomes unhealthy. */
+  healthAlertOnUnhealthy: boolean;
+  /** Poll /global/activity endpoints for proxy-wide activity data. */
+  enableActivityMonitoring: boolean;
+
+  // ── Forecasting ──
+  /** Project future spend in the Dashboard based on recent usage. */
+  enableSpendForecast: boolean;
+  /** Number of recent days to use as basis for spend forecasting (1-90). */
+  forecastDays: number;
+
+  // ── Alerts & Notifications ──
+  /** Show VS Code notifications when budget thresholds are crossed. */
+  enableBudgetAlerts: boolean;
+  /** Alert when daily spend exceeds this USD amount (0 = disabled). */
+  dailySpendAlertThreshold: number;
+  /** Enable the daily spend alert check. */
+  enableDailySpendAlert: boolean;
+
+  // ── Miscellaneous ──
+  /** Date/time display format: relative | absolute | iso. */
+  dateFormat: string;
+  /** Log raw HTTP request/response text for debugging (view via Show Request Logs command). */
   enableRequestLogging: boolean;
 }

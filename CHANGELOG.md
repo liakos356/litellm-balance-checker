@@ -2,6 +2,11 @@
 
 All notable changes to the CoreLLM VS Code extension.
 
+## 0.8.11
+
+- **Added:** Welcome screen — shown automatically on first install with quick-start steps, feature overview, and action buttons
+- **Added:** `CoreLLM: Show Welcome Screen` command to re-open the welcome screen at any time
+
 ## 0.8.10
 
 - **Docs:** Comprehensive README rewrite — better organization, quick start guide, FAQ, contributing section, security highlights, badges, architecture diagram
