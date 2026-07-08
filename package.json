@@ -2,7 +2,7 @@
   "name": "corellm",
   "displayName": "CoreLLM",
   "description": "Monitor LiteLLM proxy balances, budgets, and usage — status bar spend tracking, rich dashboards, key health, team budgets, model pricing, CSV/PDF export",
-  "version": "0.8.13",
+  "version": "0.8.14",
   "publisher": "CoreInnovation",
   "icon": "docs/logo.png",
   "license": "MIT",

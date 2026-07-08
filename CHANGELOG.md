@@ -1,6 +1,9 @@
 # Changelog
 
 All notable changes to the CoreLLM VS Code extension.
+## 0.8.14 (2026-07-08)
+
+- **Chore:** Moved copilot prompts to `.github/prompts/` directory for better organization
 ## 0.8.13
 
 - **Improved:** All settings now logically grouped with VS Code's `order` property — Auth & Connection, Status Bar, Dashboards, Monitoring, Alerts, Advanced
