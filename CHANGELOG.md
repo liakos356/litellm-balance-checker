@@ -1,6 +1,11 @@
 # Changelog
 
 All notable changes to the CoreLLM VS Code extension.
+## 0.8.16 (2026-07-08)
+
+- **Fixed:** `compactStatusBar` setting now actually works — shows a minimal `$4.32` in the status bar instead of the full label
+- **Fixed:** Cleaned up stale extension installations from old publisher identities that could prevent the status bar from appearing after updates
+
 ## 0.8.14 (2026-07-08)
 
 - **Chore:** Moved copilot prompts to `.github/prompts/` directory for better organization

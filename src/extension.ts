@@ -3370,11 +3370,22 @@ class BalanceStatusBarManager {
 
     const pctRemaining =
       maxBudget !== null && maxBudget > 0 ? 100 - usedPct : 100;
-    const prefix = "CoreLLM";
+    const prefix = this.config.compactStatusBar ? "" : "CoreLLM";
     let text: string;
     let color: string | undefined;
 
     const hasBudget = maxBudget !== null && maxBudget > 0;
+
+    // ── Compact mode: single dollar amount ──
+    if (this.config.compactStatusBar) {
+      if (hasBudget) {
+        const remainingVal = remaining!;
+        text = `$(graph) $${remainingVal.toFixed(0)}`;
+      } else {
+        text = `$(graph) $${spend.toFixed(0)}`;
+      }
+      return { text, tooltip: this.buildTooltip(data), color };
+    }
 
     switch (m) {
       case 0: // Remaining budget
@@ -3636,7 +3647,7 @@ class BalanceStatusBarManager {
 
 let manager: BalanceStatusBarManager | undefined;
 
-const CURRENT_VERSION = "0.8.15";
+const CURRENT_VERSION = "0.8.16";
 const LAST_SEEN_VERSION_KEY = "corellm.lastSeenVersion";
 
 // ─── Activation ──────────────────────────────────────────────────────────────
