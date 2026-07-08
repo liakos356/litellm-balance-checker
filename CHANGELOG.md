@@ -1,6 +1,10 @@
 # Changelog
 
 All notable changes to the CoreLLM VS Code extension.
+## 0.8.19 (2026-07-08)
+
+- **Fixed:** Username/password login now auto-refreshes when the JWT-derived key expires — previously the extension cached the key forever and would silently fail when it went stale, showing nothing in the status bar
+
 ## 0.8.18 (2026-07-08)
 
 - **Fixed:** Extension now activates immediately after install without requiring a VS Code restart — added `*` activation event alongside `onStartupFinished`

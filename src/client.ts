@@ -240,9 +240,26 @@ export class CoreLLMApiClient {
     }
   }
 
+  /** Clear cached JWT login so next request triggers a fresh login. */
+  invalidateJwtCache(): void {
+    this.cachedJwtKey = undefined;
+    this.loginPromise = undefined;
+    this.clearCache();
+  }
+
   async apiGet<T>(
     path: string,
     params?: Record<string, string>,
+  ): Promise<T> {
+    return this._apiRequest<T>("GET", path, params, undefined, false);
+  }
+
+  private async _apiRequest<T>(
+    method: string,
+    path: string,
+    params?: Record<string, string>,
+    body?: Record<string, unknown>,
+    isRetry = false,
   ): Promise<T> {
     const url = new URL(`${this.config.endpoint}${path}`);
     if (params) {
@@ -252,19 +269,32 @@ export class CoreLLMApiClient {
     }
     const headers = await this.getHeaders();
     const fullUrl = url.toString();
+    const bodyStr = body ? JSON.stringify(body) : undefined;
     const startTime = Date.now();
     let resStatus = 0;
     let resText = "";
     try {
       const res = await fetch(fullUrl, {
-        method: "GET",
+        method,
         headers,
+        body: bodyStr,
       });
       resStatus = res.status;
       resText = await res.text();
+
+      // If we get a 401 and we're using username/password login, the JWT-derived
+      // key may have expired. Clear cache and retry once with a fresh login.
+      if (resStatus === 401 && this.config.username && !isRetry) {
+        const snippet = resText.slice(0, 300);
+        if (snippet.includes("token_not_found_in_db") || snippet.includes("Invalid proxy server token")) {
+          this.invalidateJwtCache();
+          return this._apiRequest<T>(method, path, params, body, true);
+        }
+      }
+
       if (!res.ok) {
         const snippet = resText.slice(0, 300);
-        this.logRequest("GET", path, fullUrl, headers, undefined, resStatus, snippet, Date.now() - startTime);
+        this.logRequest(method, path, fullUrl, headers, bodyStr, resStatus, snippet, Date.now() - startTime);
         if (
           res.status === 403 &&
           snippet.includes("not allowed to call this route")
@@ -276,19 +306,17 @@ export class CoreLLMApiClient {
         }
         throw new Error(`API ${res.status} on ${path}: ${snippet}`);
       }
-      this.logRequest("GET", path, fullUrl, headers, undefined, resStatus, resText.slice(0, 2000), Date.now() - startTime);
+      this.logRequest(method, path, fullUrl, headers, bodyStr, resStatus, resText.slice(0, 2000), Date.now() - startTime);
       return JSON.parse(resText) as T;
     } catch (err) {
       if (err instanceof SyntaxError) {
-        // JSON parse error — response was not JSON
-        this.logRequest("GET", path, fullUrl, headers, undefined, resStatus, resText.slice(0, 2000), Date.now() - startTime, `Parse error: ${err.message}`);
+        this.logRequest(method, path, fullUrl, headers, bodyStr, resStatus, resText.slice(0, 2000), Date.now() - startTime, `Parse error: ${err.message}`);
         throw new Error(`Invalid JSON from ${path}: ${resText.slice(0, 200)}`);
       }
-      // Re-throw if already an Error we created above
-      if (err instanceof Error && err.message.startsWith("API ") || err instanceof Error && err.message.startsWith("Invalid JSON") || err instanceof Error && err.message.startsWith("Your API key")) {
+      if (err instanceof Error && (err.message.startsWith("API ") || err.message.startsWith("Invalid JSON") || err.message.startsWith("Your API key"))) {
         throw err;
       }
-      this.logRequest("GET", path, fullUrl, headers, undefined, resStatus || 0, resText.slice(0, 500), Date.now() - startTime, String(err));
+      this.logRequest(method, path, fullUrl, headers, bodyStr, resStatus || 0, resText.slice(0, 500), Date.now() - startTime, String(err));
       throw err;
     }
   }
@@ -297,39 +325,7 @@ export class CoreLLMApiClient {
     path: string,
     body?: Record<string, unknown>,
   ): Promise<T> {
-    const url = new URL(`${this.config.endpoint}${path}`);
-    const headers = await this.getHeaders();
-    const fullUrl = url.toString();
-    const bodyStr = body ? JSON.stringify(body) : undefined;
-    const startTime = Date.now();
-    let resStatus = 0;
-    let resText = "";
-    try {
-      const res = await fetch(fullUrl, {
-        method: "POST",
-        headers,
-        body: bodyStr,
-      });
-      resStatus = res.status;
-      resText = await res.text();
-      if (!res.ok) {
-        const snippet = resText.slice(0, 300);
-        this.logRequest("POST", path, fullUrl, headers, bodyStr, resStatus, snippet, Date.now() - startTime);
-        throw new Error(`API ${res.status} on ${path}: ${snippet}`);
-      }
-      this.logRequest("POST", path, fullUrl, headers, bodyStr, resStatus, resText.slice(0, 2000), Date.now() - startTime);
-      return JSON.parse(resText) as T;
-    } catch (err) {
-      if (err instanceof SyntaxError) {
-        this.logRequest("POST", path, fullUrl, headers, bodyStr, resStatus, resText.slice(0, 2000), Date.now() - startTime, `Parse error: ${err.message}`);
-        throw new Error(`Invalid JSON from ${path}: ${resText.slice(0, 200)}`);
-      }
-      if (err instanceof Error && (err.message.startsWith("API ") || err.message.startsWith("Invalid JSON"))) {
-        throw err;
-      }
-      this.logRequest("POST", path, fullUrl, headers, bodyStr, resStatus || 0, resText.slice(0, 500), Date.now() - startTime, String(err));
-      throw err;
-    }
+    return this._apiRequest<T>("POST", path, undefined, body, false);
   }
 
   // ── Key Management ──────────────────────────────────────────────────────
