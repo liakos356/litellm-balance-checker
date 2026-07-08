@@ -1,6 +1,10 @@
 # Changelog
 
 All notable changes to the CoreLLM VS Code extension.
+## 0.8.17 (2026-07-08)
+
+- **Improved:** Release prompt now auto-reloads VS Code after local VSIX install instead of reminding the user manually
+
 ## 0.8.16 (2026-07-08)
 
 - **Fixed:** `compactStatusBar` setting now actually works — shows a minimal `$4.32` in the status bar instead of the full label
