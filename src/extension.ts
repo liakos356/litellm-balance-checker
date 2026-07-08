@@ -3647,7 +3647,7 @@ class BalanceStatusBarManager {
 
 let manager: BalanceStatusBarManager | undefined;
 
-const CURRENT_VERSION = "0.8.19";
+const CURRENT_VERSION = "0.8.20";
 const LAST_SEEN_VERSION_KEY = "corellm.lastSeenVersion";
 
 // ─── Activation ──────────────────────────────────────────────────────────────
