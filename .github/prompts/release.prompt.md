@@ -64,13 +64,13 @@ Run `./deploy-local.sh`. This will:
 
 ## 8. Install locally (no Marketplace wait)
 
-Install the freshly built VSIX directly into VS Code so the user gets the update immediately, without waiting for Marketplace approval:
+Install the freshly built VSIX directly into VS Code, then **automatically reload the window** so the user gets the update immediately:
 
 ```bash
 code --install-extension corellm-<NEW_VERSION>.vsix
 ```
 
-Then tell the user to **reload VS Code** (Cmd+Shift+P → `Developer: Reload Window`) to activate the new version.
+Then run `Developer: Reload Window` to activate the new version. Use the VS Code command to do this automatically — do NOT just tell the user to reload manually.
 
 > **Note:** This installs the extension for immediate local use. The Marketplace upload (step 7) is still needed for other users to receive the update.
 
