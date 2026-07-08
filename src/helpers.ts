@@ -423,4 +423,29 @@ export const COMMON_CSS = `
   .admin-banner{background:color-mix(in srgb,var(--vscode-editorWarning-foreground,#e2b714) 12%,transparent);border:1px solid color-mix(in srgb,var(--vscode-editorWarning-foreground,#e2b714) 35%,transparent);border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:.84em;line-height:1.5;color:var(--vscode-editorWarning-foreground,#e2b714);display:flex;align-items:flex-start;gap:8px}
   .admin-banner .admin-banner-link{text-decoration:underline;cursor:pointer;font-weight:600;white-space:nowrap}
   .admin-banner .admin-banner-link:hover{opacity:.8}
+
+  /* Print / PDF export */
+  @media print {
+    body{font-size:11pt;color:#000;background:#fff;padding:8px}
+    h2 .title-actions,.toolbar,.search-bar,.theme-btn,.toolbar-btn,.tab-bar,
+    .copy-btn,.footer,.toast,.admin-banner,.title-actions{display:none!important}
+    .card{background:#fff;border:1px solid #ccc;break-inside:avoid}
+    .summary-bar{background:#f5f5f5;border:1px solid #ccc}
+    .summary-item{border-right-color:#ccc}
+    table{font-size:9pt}
+    th,td{border-bottom-color:#ccc}
+    th{background:#fff}
+    .bar-container{background:#eee}
+    .bar-fill{opacity:1!important}
+    .error-box{background:#fff3f3;border-color:#e00;color:#c00}
+    .badge{background:#eee;color:#333}
+    .badge-success{background:#d4edda;color:#155724}
+    .badge-warn{background:#fff3cd;color:#856404}
+    .badge-error{background:#f8d7da;color:#721c24}
+    .tab-content{display:block!important}
+    .health-card{break-inside:avoid}
+    svg{max-width:100%;height:auto}
+    .chart-row{flex-wrap:nowrap}
+    @page{margin:12mm}
+  }
 `;

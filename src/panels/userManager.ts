@@ -1,4 +1,4 @@
-import { COMMON_CSS, buildThemeOverrides, escapeHtml, usd } from "../helpers";
+import { COMMON_CSS, buildThemeOverrides, escapeHtml, usd, materialIcon } from "../helpers";
 import { UserInfoResponse } from "../types";
 
 interface UserManagerData {
@@ -26,14 +26,14 @@ export function buildUserManagerHtml(data: UserManagerData): string {
 <style>${COMMON_CSS}${themeOverride}</style>
 </head>
 <body>
-<h2>\u{1F464} CoreLLM User Manager
+<h2>${materialIcon("person", 22)} CoreLLM User Manager
   <span class="title-actions">
-    <span class="theme-btn" id="themeBtn" title="Toggle theme">\u{1F3A8}</span>
-    <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">\u{1F4E5} CSV</button>
-    <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">\u{1F504} Refresh</button>
+    <span class="theme-btn" id="themeBtn" title="Toggle theme">${materialIcon("palette", 18)}</span>
+    <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">${materialIcon("download", 16)} CSV</button>
+    <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">${materialIcon("refresh", 16)} Refresh</button>
   </span>
 </h2>
-${error ? `<div class="error-box">\u26A0 ${escapeHtml(error)}</div>` : ""}
+${error ? `<div class="error-box">${materialIcon("warning", 16)} ${escapeHtml(error)}</div>` : ""}
 
 <div class="summary-bar">
   <div class="summary-item"><div class="summary-value">${users.length}</div><div class="summary-label">Users</div></div>
@@ -45,7 +45,7 @@ ${
   users.length > 0
     ? `
 <div class="search-bar">
-  <input type="text" class="search-input" id="userSearch" placeholder="\u{1F50D} Filter by email, alias, or ID\u2026">
+      <input type="text" class="search-input" id="userSearch" placeholder="${materialIcon("preview", 14)} Filter by email, alias, or ID…">
   <span class="match-count" id="matchCount">Showing ${users.length}</span>
 </div>
 <div class="card">
@@ -72,7 +72,7 @@ ${
     })
     .join("")}</tbody></table></div>
 </div>`
-    : '<div class="empty-state"><span class="empty-icon">\u{1F464}</span><div class="empty-text">No users found.</div></div>'
+    : '<div class="empty-state"><span class="empty-icon">${materialIcon("person", 32)}</span><div class="empty-text">No users found.</div></div>'
 }
 
 <div class="footer">

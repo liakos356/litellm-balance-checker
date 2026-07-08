@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { materialIcon } from './helpers';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -10,7 +11,7 @@ function escapeHtml(s: string): string {
 
 // ─── Tutorial / Getting Started Panel HTML ───────────────────────────────────
 
-const CURRENT_VERSION = '0.8.4';
+const CURRENT_VERSION = '0.8.6';
 
 export function buildTutorialHtml(activeTheme?: string): string {
   const theme = activeTheme || 'vscode';
@@ -30,34 +31,34 @@ export function buildTutorialHtml(activeTheme?: string): string {
 
 <!-- ─── Header ─────────────────────────────────────────────────────────── -->
 <div class="hero">
-  <div class="hero-icon">\u{1F4CA}</div>
+  <div class="hero-icon">${materialIcon("dashboard", 48)}</div>
   <h1>CoreLLM <span class="version-badge">v${CURRENT_VERSION}</span></h1>
   <p class="hero-subtitle">Monitor your LiteLLM API key balances, budgets, and usage — right from the VS Code status bar.</p>
   <div class="hero-actions">
-    <button class="toolbar-btn primary" onclick="openSettings()">\u2699\uFE0F Open Settings</button>
-    <button class="toolbar-btn" onclick="openBudget()">\u{1F4CA} Budget Overview</button>
-    <button class="toolbar-btn" id="themeBtn">\u{1F3A8} Toggle Theme</button>
+    <button class="toolbar-btn" onclick="openSettings()">${materialIcon("build", 16)} Open Settings</button>
+    <button class="toolbar-btn" onclick="openBudget()">${materialIcon("dashboard", 16)} Budget Overview</button>
+    <button class="toolbar-btn" id="themeBtn">${materialIcon("palette", 16)} Toggle Theme</button>
   </div>
 </div>
 
 <!-- ─── Table of Contents ──────────────────────────────────────────────── -->
 <div class="card toc-card">
-  <h3>\u{1F4D6} Quick Navigation</h3>
+  <h3>${materialIcon("preview", 18)} Quick Navigation</h3>
   <div class="toc-grid">
-    <a href="#quickstart" class="toc-item">\u{1F680} Quick Start</a>
-    <a href="#auth" class="toc-item">\u{1F511} Authentication</a>
-    <a href="#statusbar" class="toc-item">\u{1F4CA} Status Bar</a>
-    <a href="#commands" class="toc-item">\u{1F4DD} Commands</a>
-    <a href="#panels" class="toc-item">\u{1F4CB} Panels</a>
-    <a href="#settings" class="toc-item">\u2699\uFE0F Settings</a>
-    <a href="#tips" class="toc-item">\u{1F4A1} Tips &amp; Best Practices</a>
-    <a href="#faq" class="toc-item">\u2753 FAQ</a>
+    <a href="#quickstart" class="toc-item">${materialIcon("info", 16)} Quick Start</a>
+    <a href="#auth" class="toc-item">${materialIcon("key", 16)} Authentication</a>
+    <a href="#statusbar" class="toc-item">${materialIcon("dashboard", 16)} Status Bar</a>
+    <a href="#commands" class="toc-item">${materialIcon("preview", 16)} Commands</a>
+    <a href="#panels" class="toc-item">${materialIcon("preview", 16)} Panels</a>
+    <a href="#settings" class="toc-item">${materialIcon("build", 16)} Settings</a>
+    <a href="#tips" class="toc-item">${materialIcon("info", 16)} Tips &amp; Best Practices</a>
+    <a href="#faq" class="toc-item">${materialIcon("info", 16)} FAQ</a>
   </div>
 </div>
 
 <!-- ─── Quick Start ────────────────────────────────────────────────────── -->
 <div class="card" id="quickstart">
-  <h3>\u{1F680} Quick Start</h3>
+  <h3>${materialIcon("info", 18)} Quick Start</h3>
   <div class="step-list">
     <div class="step">
       <div class="step-num">1</div>
@@ -97,41 +98,41 @@ export function buildTutorialHtml(activeTheme?: string): string {
 
 <!-- ─── Authentication ─────────────────────────────────────────────────── -->
 <div class="card" id="auth">
-  <h3>\u{1F511} Authentication Methods</h3>
+  <h3>${materialIcon("key", 18)} Authentication Methods</h3>
   <p>CoreLLM supports three ways to authenticate with your LiteLLM proxy. Choose the one that fits your setup.</p>
 
   <div class="auth-methods">
     <div class="auth-card">
-      <div class="auth-icon">\u{1F511}</div>
+      <div class="auth-icon">${materialIcon("key", 28)}</div>
       <h4>Direct API Key</h4>
       <p>Simplest method for personal use with a single API key.</p>
       <div class="code-block">"corellm.apiKey": "sk-your-key-here"<br>"corellm.endpoint": "http://localhost:4000"</div>
-      <div class="check-item">\u2705 Best for: Single key, personal usage</div>
-      <div class="check-item">\u2705 Shows spend, budget, and models</div>
-      <div class="cross-item">\u274C Limited: standard LLM keys may not access <code>/spend/logs</code> or <code>/key/list</code></div>
+      <div class="check-item">${materialIcon("check_circle", 14)} Best for: Single key, personal usage</div>
+      <div class="check-item">${materialIcon("check_circle", 14)} Shows spend, budget, and models</div>
+      <div class="cross-item">${materialIcon("cancel", 14)} Limited: standard LLM keys may not access <code>/spend/logs</code> or <code>/key/list</code></div>
     </div>
     <div class="auth-card">
-      <div class="auth-icon">\u{1F510}</div>
+      <div class="auth-icon">${materialIcon("build", 28)}</div>
       <h4>Admin / Proxy Master Key</h4>
       <p>Full access to all management endpoints. Recommended for admins.</p>
       <div class="code-block">"corellm.apiKey": "sk-your-llm-key"<br>"corellm.adminKey": "sk-proxy-master-key"</div>
-      <div class="check-item">\u2705 Full access to all API endpoints</div>
-      <div class="check-item">\u2705 Can query specific keys via <code>keyToQuery</code></div>
-      <div class="check-item">\u2705 Access to provider budgets &amp; global reports</div>
+      <div class="check-item">${materialIcon("check_circle", 14)} Full access to all API endpoints</div>
+      <div class="check-item">${materialIcon("check_circle", 14)} Can query specific keys via <code>keyToQuery</code></div>
+      <div class="check-item">${materialIcon("check_circle", 14)} Access to provider budgets &amp; global reports</div>
     </div>
     <div class="auth-card">
-      <div class="auth-icon">\u{1F464}</div>
+      <div class="auth-icon">${materialIcon("person", 28)}</div>
       <h4>Username / Password Login</h4>
       <p>Automatically logs into the LiteLLM UI and extracts the embedded session key.</p>
       <div class="code-block">"corellm.username": "you@company.com"<br>"corellm.password": "your-password"<br>"corellm.endpoint": "http://core.llm"</div>
-      <div class="check-item">\u2705 No need to manage raw API keys</div>
-      <div class="check-item">\u2705 Key is extracted from JWT session cookie</div>
-      <div class="cross-item">\u274C Requires <code>POST /login</code> to be enabled on your proxy</div>
+      <div class="check-item">${materialIcon("check_circle", 14)} No need to manage raw API keys</div>
+      <div class="check-item">${materialIcon("check_circle", 14)} Key is extracted from JWT session cookie</div>
+      <div class="cross-item">${materialIcon("cancel", 14)} Requires <code>POST /login</code> to be enabled on your proxy</div>
     </div>
   </div>
 
   <div class="tip-box">
-    <strong>\u{1F4A1} Pro tip:</strong> If your standard LLM key shows <span class="err">"not allowed to call this route"</span>,
+    <strong>${materialIcon("info", 14)} Pro tip:</strong> If your standard LLM key shows <span class="err">"not allowed to call this route"</span>,
     configure an <code>adminKey</code> (proxy master key) for management endpoints
     while keeping your LLM key in <code>apiKey</code> for usage tracking.
   </div>
@@ -139,49 +140,49 @@ export function buildTutorialHtml(activeTheme?: string): string {
 
 <!-- ─── Status Bar ─────────────────────────────────────────────────────── -->
 <div class="card" id="statusbar">
-  <h3>\u{1F4CA} Status Bar Display</h3>
+  <h3>${materialIcon("dashboard", 18)} Status Bar Display</h3>
   <p>The status bar shows your LiteLLM balance at a glance. Click it to cycle through display modes.</p>
 
   <div class="display-modes">
     <div class="mode-card">
-      <div class="mode-icon">\u{1F4E6}</div>
+      <div class="mode-icon">${materialIcon("storage", 22)}</div>
       <div class="mode-label">Remaining Budget</div>
       <div class="mode-desc">Shows how much budget is left. Color shifts to warning when below threshold.</div>
     </div>
     <div class="mode-card">
-      <div class="mode-icon">\u{1F4CA}</div>
+      <div class="mode-icon">${materialIcon("bar_chart", 22)}</div>
       <div class="mode-label">Usage Bar</div>
       <div class="mode-desc">ASCII bar chart + percentage used: <code>[██████░░░░] 60.5%</code></div>
     </div>
     <div class="mode-card">
-      <div class="mode-icon">\u{1F4B0}</div>
+      <div class="mode-icon">${materialIcon("payments", 22)}</div>
       <div class="mode-label">Total Spend</div>
       <div class="mode-desc">Displays the total amount spent so far.</div>
     </div>
     <div class="mode-card">
-      <div class="mode-icon">\u{1F3AF}</div>
+      <div class="mode-icon">${materialIcon("build", 22)}</div>
       <div class="mode-label">Budget Total</div>
       <div class="mode-desc">Shows the configured max budget amount.</div>
     </div>
   </div>
 
   <div class="tooltip-preview">
-    <h4>\u{1F4DD} Tooltip Preview</h4>
+    <h4>${materialIcon("preview", 16)} Tooltip Preview</h4>
     <p>Hover over the status bar to see a detailed tooltip with:</p>
     <div class="preview-grid">
-      <div class="preview-item">\u{1F511} Key alias / name</div>
-      <div class="preview-item">\u{1F4B0} Spend &amp; remaining budget</div>
-      <div class="preview-item">\u{1F4CA} Usage percentage + bar</div>
-      <div class="preview-item">\u{1F464} User ID &amp; Team ID</div>
-      <div class="preview-item">\u{1F4CB} Accessible models</div>
-      <div class="preview-item">\u{1F4C5} Budget duration &amp; reset</div>
+      <div class="preview-item">${materialIcon("key", 14)} Key alias / name</div>
+      <div class="preview-item">${materialIcon("payments", 14)} Spend &amp; remaining budget</div>
+      <div class="preview-item">${materialIcon("dashboard", 14)} Usage percentage + bar</div>
+      <div class="preview-item">${materialIcon("person", 14)} User ID &amp; Team ID</div>
+      <div class="preview-item">${materialIcon("preview", 14)} Accessible models</div>
+      <div class="preview-item">${materialIcon("schedule", 14)} Budget duration &amp; reset</div>
     </div>
   </div>
 </div>
 
 <!-- ─── Commands ───────────────────────────────────────────────────────── -->
 <div class="card" id="commands">
-  <h3>\u{1F4DD} All Commands</h3>
+  <h3>${materialIcon("preview", 18)} All Commands</h3>
   <p>Access any command via the Command Palette (<kbd>Cmd+Shift+P</kbd>) and type <code>CoreLLM</code>.</p>
   <div class="table-wrap"><table class="cmd-table">
     <thead><tr><th style="width:200px">Command</th><th>Description</th><th style="width:100px">Shortcut</th></tr></thead>
@@ -211,9 +212,9 @@ export function buildTutorialHtml(activeTheme?: string): string {
 
 <!-- ─── Panels ─────────────────────────────────────────────────────────── -->
 <div class="card" id="panels">
-  <h3>\u{1F4CB} Panels Deep Dive</h3>
+  <h3>${materialIcon("preview", 18)} Panels Deep Dive</h3>
 
-  <h4>\u{1F4CA} Budget Overview</h4>
+  <h4>${materialIcon("dashboard", 16)} Budget Overview</h4>
   <p>The main dashboard. Shows a summary bar with total spend, usage %, remaining budget, request count, provider count, and cost efficiency metrics. Includes:</p>
   <ul>
     <li><strong>Date range selector</strong> \u2014 switch between 1h, 24h, 7d, 30d, or custom dates</li>
@@ -227,13 +228,13 @@ export function buildTutorialHtml(activeTheme?: string): string {
     <li><strong>Theme toggle</strong> \u2014 switch between VS Code, light, dark, and high-contrast</li>
   </ul>
 
-  <h4>\u{1F4DD} Spend Logs</h4>
+  <h4>${materialIcon("preview", 16)} Spend Logs</h4>
   <p>Browse the latest 50 spend entries with search filtering. Each row shows timestamp, model, call type, spend amount, tokens used, and cost per token. Summary bar shows totals and averages.</p>
 
-  <h4>\u{1F511} Key List</h4>
+  <h4>${materialIcon("key", 16)} Key List</h4>
   <p>View all API keys with their spend, max budget, usage percentage (with bar), user ID, and team ID. Keys over budget are highlighted with a red border. Search by alias, user, or team.</p>
 
-  <h4>\uD83C\uDF10 Global Spend</h4>
+  <h4>${materialIcon("cloud", 16)} Global Spend</h4>
   <p>Proxy-wide spend analytics broken down by three dimensions:</p>
   <ul>
     <li><strong>By Key</strong> \u2014 spend, tokens, and requests per API key</li>
@@ -242,25 +243,25 @@ export function buildTutorialHtml(activeTheme?: string): string {
   </ul>
   <p>All views include SVG bar charts and sortable tables. Export to CSV.</p>
 
-  <h4>\u{1F465} Teams</h4>
+  <h4>${materialIcon("person", 16)} Teams</h4>
   <p>Team budget management dashboard. Each team card shows spend, max budget, remaining budget, usage percentage with progress bar, models, and members. Blocked teams are highlighted. Optionally filter by team via the <code>teamFilter</code> setting.</p>
 
-  <h4>\u{1F4DD} Activity</h4>
+  <h4>${materialIcon("schedule", 16)} Activity</h4>
   <p>Proxy activity timeline showing daily spend, tokens, and requests. Includes an SVG line chart for spend trends over the selected date range. Enable automatic updates via the <code>enableActivityMonitoring</code> setting.</p>
 
-  <h4>\u{1F4CA} Model Info</h4>
+  <h4>${materialIcon("dashboard", 16)} Model Info</h4>
   <p>Model catalog with pricing details: input/output cost per token, max tokens, provider, mode (chat/completion/embedding), and capability flags (function calling, vision). Searchable table with sortable columns. Export to CSV.</p>
 
-  <h4>\u{1F3F7} Spend by Tags</h4>
+  <h4>${materialIcon("info", 16)} Spend by Tags</h4>
   <p>Cost tracking broken down by custom spend tags. Shows tag name, spend, tokens, and requests with an SVG bar chart. Useful for cost allocation and chargebacks.</p>
 
-  <h4>\u{1F3AF} Key Health</h4>
+  <h4>${materialIcon("build", 16)} Key Health</h4>
   <p>Key health monitoring showing status (healthy/unhealthy), spend, budget, last access time, and associated models.</p>
 </div>
 
 <!-- ─── Settings Reference ─────────────────────────────────────────────── -->
 <div class="card" id="settings">
-  <h3>\u2699\uFE0F Settings Reference</h3>
+  <h3>${materialIcon("build", 18)} Settings Reference</h3>
   <p>Open VS Code settings (<kbd>Cmd+,</kbd>) and search for <code>corellm</code> to configure.</p>
   <div class="table-wrap"><table class="settings-table">
     <thead><tr><th>Setting</th><th>Default</th><th>Description</th></tr></thead>
@@ -295,10 +296,10 @@ export function buildTutorialHtml(activeTheme?: string): string {
 
 <!-- ─── Tips ───────────────────────────────────────────────────────────── -->
 <div class="card" id="tips">
-  <h3>\u{1F4A1} Tips &amp; Best Practices</h3>
+  <h3>${materialIcon("info", 18)} Tips &amp; Best Practices</h3>
   <div class="tip-grid">
     <div class="tip-item">
-      <div class="tip-icon">\u{1F504}</div>
+      <div class="tip-icon">${materialIcon("refresh", 18)}</div>
       <div class="tip-body">
         <strong>Auto-Refresh</strong><br>
         Set <code>refreshInterval</code> to your preferred polling rate (minimum 5s).
@@ -306,7 +307,7 @@ export function buildTutorialHtml(activeTheme?: string): string {
       </div>
     </div>
     <div class="tip-item">
-      <div class="tip-icon">\u{1F50D}</div>
+      <div class="tip-icon">${materialIcon("preview", 18)}</div>
       <div class="tip-body">
         <strong>Search Spend Logs</strong><br>
         The Spend Logs panel has a live search bar. Filter by model name, call type, or
@@ -314,7 +315,7 @@ export function buildTutorialHtml(activeTheme?: string): string {
       </div>
     </div>
     <div class="tip-item">
-      <div class="tip-icon">\u{1F511}</div>
+      <div class="tip-icon">${materialIcon("key", 18)}</div>
       <div class="tip-body">
         <strong>Query a Specific Key</strong><br>
         Use <code>keyToQuery</code> to monitor a key different from your auth key.
@@ -322,7 +323,7 @@ export function buildTutorialHtml(activeTheme?: string): string {
       </div>
     </div>
     <div class="tip-item">
-      <div class="tip-icon">\u{1F4E5}</div>
+      <div class="tip-icon">${materialIcon("download", 18)}</div>
       <div class="tip-body">
         <strong>Export Data</strong><br>
         Every panel has an Export CSV button. Use it to download data for
@@ -330,7 +331,7 @@ export function buildTutorialHtml(activeTheme?: string): string {
       </div>
     </div>
     <div class="tip-item">
-      <div class="tip-icon">\u{1F3A8}</div>
+      <div class="tip-icon">${materialIcon("palette", 18)}</div>
       <div class="tip-body">
         <strong>Panel Themes</strong><br>
         Each panel has a theme toggle button. You can cycle through VS Code,
@@ -338,7 +339,7 @@ export function buildTutorialHtml(activeTheme?: string): string {
       </div>
     </div>
     <div class="tip-item">
-      <div class="tip-icon">\u{26A0}</div>
+      <div class="tip-icon">${materialIcon("warning", 18)}</div>
       <div class="tip-body">
         <strong>Budget Warnings</strong><br>
         Set <code>budgetWarningThreshold</code> (default 20%) to get a visual
@@ -346,7 +347,7 @@ export function buildTutorialHtml(activeTheme?: string): string {
       </div>
     </div>
     <div class="tip-item">
-      <div class="tip-icon">\u{1F4C5}</div>
+      <div class="tip-icon">${materialIcon("schedule", 18)}</div>
       <div class="tip-body">
         <strong>Custom Date Ranges</strong><br>
         In Budget Overview, set <code>reportDuration</code> to <code>"custom"</code>
@@ -355,14 +356,14 @@ export function buildTutorialHtml(activeTheme?: string): string {
       </div>
     </div>
     <div class="tip-item">
-      <div class="tip-icon">\u{1F4F6}</div>
+      <div class="tip-icon">${materialIcon("cloud", 18)}</div>
       <div class="tip-body">
         <strong>Offline / Proxy Setup</strong><br>
         The extension works with any LiteLLM proxy. If you use a custom domain,
         just update <code>endpoint</code> to your proxy URL (e.g. <code>https://llm-proxy.mycompany.com</code>).
       </div>
     </div>    <div class="tip-item">
-      <div class="tip-icon">\uD83C\uDF10</div>
+      <div class="tip-icon">${materialIcon("cloud", 18)}</div>
       <div class="tip-body">
         <strong>Global Spend Analytics</strong><br>
         Use <code>CoreLLM: Show Global Spend</code> to see spend broken down
@@ -370,7 +371,7 @@ export function buildTutorialHtml(activeTheme?: string): string {
       </div>
     </div>
     <div class="tip-item">
-      <div class="tip-icon">\u{1F465}</div>
+      <div class="tip-icon">${materialIcon("person", 18)}</div>
       <div class="tip-body">
         <strong>Team Budget Tracking</strong><br>
         Open <code>CoreLLM: Show Teams</code> to monitor budgets per team.
@@ -378,7 +379,7 @@ export function buildTutorialHtml(activeTheme?: string): string {
       </div>
     </div>
     <div class="tip-item">
-      <div class="tip-icon">\u{1F3F7}</div>
+      <div class="tip-icon">${materialIcon("info", 18)}</div>
       <div class="tip-body">
         <strong>Tag-Based Cost Tracking</strong><br>
         Use <code>CoreLLM: Show Spend by Tags</code> to allocate costs by
@@ -386,7 +387,7 @@ export function buildTutorialHtml(activeTheme?: string): string {
       </div>
     </div>
     <div class="tip-item">
-      <div class="tip-icon">\u{1F4CA}</div>
+      <div class="tip-icon">${materialIcon("dashboard", 18)}</div>
       <div class="tip-body">
         <strong>Model Pricing Reference</strong><br>
         <code>CoreLLM: Show Model Info</code> shows pricing per token,
@@ -394,7 +395,7 @@ export function buildTutorialHtml(activeTheme?: string): string {
       </div>
     </div>
     <div class="tip-item">
-      <div class="tip-icon">\u{26A0}</div>
+      <div class="tip-icon">${materialIcon("warning", 18)}</div>
       <div class="tip-body">
         <strong>Spend Alerts</strong><br>
         Set <code>spendAlertThreshold</code> to get notifications when a
@@ -402,7 +403,7 @@ export function buildTutorialHtml(activeTheme?: string): string {
       </div>
     </div>
     <div class="tip-item">
-      <div class="tip-icon">\u{1F504}</div>
+      <div class="tip-icon">${materialIcon("refresh", 18)}</div>
       <div class="tip-body">
         <strong>Status Bar Display Modes</strong><br>
         Click the CoreLLM status bar item to cycle through display modes:
@@ -413,7 +414,7 @@ export function buildTutorialHtml(activeTheme?: string): string {
 
 <!-- ─── FAQ ────────────────────────────────────────────────────────────── -->
 <div class="card" id="faq">
-  <h3>\u2753 Frequently Asked Questions</h3>
+  <h3>${materialIcon("info", 18)} Frequently Asked Questions</h3>
 
   <div class="faq-item">
     <div class="faq-q" onclick="toggleFaq(this)">\u25B6 Why does my status bar show "LLM key (limited)"?</div>

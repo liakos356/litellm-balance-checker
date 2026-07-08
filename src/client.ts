@@ -241,17 +241,38 @@ export class CoreLLMApiClient {
     body?: Record<string, unknown>,
   ): Promise<T> {
     const url = new URL(`${this.config.endpoint}${path}`);
-    const res = await fetch(url.toString(), {
-      method: "POST",
-      headers: await this.getHeaders(),
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      const snippet = text.slice(0, 300);
-      throw new Error(`API ${res.status} on ${path}: ${snippet}`);
+    const headers = await this.getHeaders();
+    const fullUrl = url.toString();
+    const bodyStr = body ? JSON.stringify(body) : undefined;
+    const startTime = Date.now();
+    let resStatus = 0;
+    let resText = "";
+    try {
+      const res = await fetch(fullUrl, {
+        method: "POST",
+        headers,
+        body: bodyStr,
+      });
+      resStatus = res.status;
+      resText = await res.text();
+      if (!res.ok) {
+        const snippet = resText.slice(0, 300);
+        this.logRequest("POST", path, fullUrl, headers, bodyStr, resStatus, snippet, Date.now() - startTime);
+        throw new Error(`API ${res.status} on ${path}: ${snippet}`);
+      }
+      this.logRequest("POST", path, fullUrl, headers, bodyStr, resStatus, resText.slice(0, 2000), Date.now() - startTime);
+      return JSON.parse(resText) as T;
+    } catch (err) {
+      if (err instanceof SyntaxError) {
+        this.logRequest("POST", path, fullUrl, headers, bodyStr, resStatus, resText.slice(0, 2000), Date.now() - startTime, `Parse error: ${err.message}`);
+        throw new Error(`Invalid JSON from ${path}: ${resText.slice(0, 200)}`);
+      }
+      if (err instanceof Error && (err.message.startsWith("API ") || err.message.startsWith("Invalid JSON"))) {
+        throw err;
+      }
+      this.logRequest("POST", path, fullUrl, headers, bodyStr, resStatus || 0, resText.slice(0, 500), Date.now() - startTime, String(err));
+      throw err;
     }
-    return res.json() as Promise<T>;
   }
 
   // ── Key Management ──────────────────────────────────────────────────────

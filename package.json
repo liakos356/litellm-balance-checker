@@ -2,7 +2,7 @@
   "name": "corellm",
   "displayName": "CoreLLM",
   "description": "Monitor LiteLLM API key balances, budgets, and usage directly from VS Code status bar",
-  "version": "0.8.4",
+  "version": "0.8.6",
   "publisher": "litellm-tools",
   "icon": "icon.png",
   "license": "MIT",
@@ -135,6 +135,10 @@
       {
         "command": "corellm.showUnifiedDashboard",
         "title": "CoreLLM: Show Dashboard"
+      },
+      {
+        "command": "corellm.showRequestLogs",
+        "title": "CoreLLM: Show Request Logs"
       },
       {
         "command": "corellm.setApiKey",
@@ -421,6 +425,11 @@
           "type": "boolean",
           "default": true,
           "description": "Auto-refresh the sidebar tree view data."
+        },
+        "corellm.enableRequestLogging": {
+          "type": "boolean",
+          "default": false,
+          "description": "Log raw HTTP request/response text for debugging. View them via the 'CoreLLM: Show Request Logs' command."
         }
       }
     }

@@ -2,6 +2,21 @@
 
 All notable changes to the CoreLLM VS Code extension.
 
+## 0.8.6
+
+- **Added:** Request Logs panel (`CoreLLM: Show Request Logs`) — view raw HTTP request/response text for debugging
+- **Added:** `corellm.enableRequestLogging` setting to toggle request/response logging (off by default)
+- Each log entry shows method, URL, headers, body, response status, response body, and duration
+- Logs are expandable/collapsible with copy-to-clipboard buttons
+
+## 0.8.5
+
+- **Improved:** Replaced all emoji icons with Material Design SVG icons across all panels for a more polished, professional look
+- **Improved:** Redesigned CSS with Material-inspired styling — refined spacing, typography, shadows, button hover effects, and card transitions
+- **Improved:** Enhanced tab bar with fade-in animation and better active state styling
+- **Improved:** Summary bar items now have hover feedback and refined typography
+- **Improved:** Toast notifications, error boxes, and toolbar buttons now have more consistent Material-like styling
+
 ## 0.8.4
 
 - **Fixed:** Cancel button on loading screens now actually closes the panel instead of doing nothing

@@ -71,6 +71,7 @@ import {
   DURATION_LABELS,
   DURATION_MS,
   ExtensionConfig,
+  RequestLogEntry,
 } from "./types";
 
 function buildBudgetOverviewHtml(data: {
@@ -262,6 +263,7 @@ function buildSpendLogsHtml(
   <span class="title-actions">
     <span class="theme-btn" id="themeBtn" title="Toggle theme">\u{1F3A8}</span>
     <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">\u{1F4E5}</button>
+    <button class="toolbar-btn" id="exportPdfBtn" title="Save as PDF">\u{1F4C4}</button>
     <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">\u{1F504}</button>
   </span>
 </h2>
@@ -326,6 +328,9 @@ ${
   document.getElementById('exportCsvBtn').addEventListener('click', function() {
     vscode.postMessage({ type: 'exportCsv' });
   });
+  document.getElementById('exportPdfBtn').addEventListener('click', function() {
+    window.print();
+  });
 
   const input = document.getElementById('spendSearch');
   const table = document.getElementById('spendTable');
@@ -386,6 +391,7 @@ function buildKeyListHtml(
   <span class="title-actions">
     <span class="theme-btn" id="themeBtn" title="Toggle theme">\u{1F3A8}</span>
     <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">\u{1F4E5}</button>
+    <button class="toolbar-btn" id="exportPdfBtn" title="Save as PDF">\u{1F4C4}</button>
     <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">\u{1F504}</button>
   </span>
 </h2>
@@ -448,6 +454,9 @@ ${
   });
   document.getElementById('exportCsvBtn').addEventListener('click', function() {
     vscode.postMessage({ type: 'exportCsv' });
+  });
+  document.getElementById('exportPdfBtn').addEventListener('click', function() {
+    window.print();
   });
 
   const input = document.getElementById('keySearch');
@@ -569,6 +578,7 @@ function buildGlobalSpendHtml(data: {
   <span class="title-actions">
     <span class="theme-btn" id="themeBtn" title="Toggle theme">\u{1F3A8}</span>
     <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">\u{1F4E5}</button>
+    <button class="toolbar-btn" id="exportPdfBtn" title="Save as PDF">\u{1F4C4}</button>
     <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">\u{1F504}</button>
   </span>
 </h2>
@@ -717,6 +727,7 @@ function buildTeamsHtml(data: {
   <span class="title-actions">
     <span class="theme-btn" id="themeBtn" title="Toggle theme">\u{1F3A8}</span>
     <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">\u{1F4E5}</button>
+    <button class="toolbar-btn" id="exportPdfBtn" title="Save as PDF">\u{1F4C4}</button>
     <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">\u{1F504}</button>
   </span>
 </h2>
@@ -840,6 +851,7 @@ function buildActivityHtml(data: {
   <span class="title-actions">
     <span class="theme-btn" id="themeBtn" title="Toggle theme">\u{1F3A8}</span>
     <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">\u{1F4E5}</button>
+    <button class="toolbar-btn" id="exportPdfBtn" title="Save as PDF">\u{1F4C4}</button>
     <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">\u{1F504}</button>
   </span>
 </h2>
@@ -952,6 +964,7 @@ function buildSpendTagsHtml(data: {
   <span class="title-actions">
     <span class="theme-btn" id="themeBtn" title="Toggle theme">\u{1F3A8}</span>
     <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">\u{1F4E5}</button>
+    <button class="toolbar-btn" id="exportPdfBtn" title="Save as PDF">\u{1F4C4}</button>
     <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">\u{1F504}</button>
   </span>
 </h2>
@@ -1035,6 +1048,7 @@ function buildModelInfoHtml(data: {
   <span class="title-actions">
     <span class="theme-btn" id="themeBtn" title="Toggle theme">\u{1F3A8}</span>
     <button class="toolbar-btn" id="exportCsvBtn" title="Export as CSV">\u{1F4E5}</button>
+    <button class="toolbar-btn" id="exportPdfBtn" title="Save as PDF">\u{1F4C4}</button>
     <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">\u{1F504}</button>
   </span>
 </h2>
@@ -1196,6 +1210,169 @@ ${
 </html>`;
 }
 
+// ─── Request Logs Panel HTML ─────────────────────────────────────────────────
+
+function buildRequestLogsHtml(
+  logs: RequestLogEntry[],
+  activeTheme?: string,
+  loggingEnabled?: boolean,
+): string {
+  const theme = activeTheme || "vscode";
+  const themeOverride = buildThemeOverrides(theme);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>${COMMON_CSS}${themeOverride}
+  .log-entry{border:1px solid var(--vscode-widget-border);border-radius:8px;margin-bottom:16px;overflow:hidden}
+  .log-entry.error{border-color:var(--vscode-editorError-foreground,#f14c4c)}
+  .log-header{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--vscode-toolbar-hoverBackground);cursor:pointer;user-select:none;font-size:.88em}
+  .log-header:hover{opacity:.9}
+  .log-method{font-weight:700;font-size:.82em;min-width:52px;text-align:center;padding:3px 8px;border-radius:4px}
+  .log-method.GET{background:#2ea04355;color:#56d364}
+  .log-method.POST{background:#d2992255;color:#e3b341}
+  .log-path{font-family:monospace;font-size:.84em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .log-status{font-weight:700;font-size:.82em;min-width:42px;text-align:center;padding:3px 6px;border-radius:4px}
+  .log-status.ok{background:#2ea04355;color:#56d364}
+  .log-status.err{background:#f8514955;color:#f85149}
+  .log-duration{font-size:.78em;opacity:.6;min-width:52px;text-align:right}
+  .log-body{padding:12px 14px;display:none}
+  .log-body.open{display:block}
+  .log-section{margin-bottom:12px}
+  .log-section-title{font-weight:600;font-size:.82em;margin-bottom:6px;opacity:.7;text-transform:uppercase;letter-spacing:.5px}
+  .log-code{background:var(--vscode-textCodeBlock-background,#1e1e2e);border-radius:6px;padding:10px;font-family:monospace;font-size:.8em;white-space:pre-wrap;word-break:break-all;max-height:360px;overflow-y:auto;line-height:1.45;margin:0}
+  .log-copy-btn{font-size:.75em;cursor:pointer;opacity:.6;padding:2px 8px;border-radius:4px;border:1px solid var(--vscode-widget-border);background:transparent;color:inherit;float:right;margin-left:8px}
+  .log-copy-btn:hover{opacity:1;background:var(--vscode-toolbar-hoverBackground)}
+  .log-empty{text-align:center;padding:60px 20px;opacity:.6}
+  .log-empty-icon{font-size:48px;margin-bottom:12px}
+  .log-toolbar{display:flex;gap:8px;margin-bottom:16px;align-items:center}
+  .log-toggle{display:flex;align-items:center;gap:8px}
+  .log-toggle input{margin:0}
+  .log-collapse-all{font-size:.78em;cursor:pointer;opacity:.6;margin-left:auto}
+  .log-collapse-all:hover{opacity:1}
+</style>
+</head>
+<body>
+<h2>\u{1F4E1} CoreLLM Request Logs
+  <span class="title-actions">
+    <span class="theme-btn" id="themeBtn" title="Toggle theme">\u{1F3A8}</span>
+    <button class="toolbar-btn" id="clearBtn" title="Clear all logs">\u{1F5D1} Clear</button>
+    <button class="toolbar-btn primary" id="refreshBtn" title="Refresh">\u{1F504}</button>
+  </span>
+</h2>
+
+<div class="log-toolbar">
+  <span style="font-size:.84em;opacity:.7">${logs.length} request(s) captured</span>
+  ${!loggingEnabled ? '<span style="font-size:.82em;color:var(--vscode-editorWarning-foreground,#e2b714)">\u26A0 Logging is disabled. Enable \u201Ccorellm.enableRequestLogging\u201D in settings.</span>' : ''}
+  <span class="log-collapse-all" id="collapseAll">\u2191 Collapse all</span>
+</div>
+
+${
+  logs.length > 0
+    ? logs.map((log) => `
+<div class="log-entry${log.error ? ' error' : ''}">
+  <div class="log-header" data-id="${log.id}">
+    <span class="log-method ${log.method}">${escapeHtml(log.method)}</span>
+    <span class="log-path" title="${escapeHtml(log.fullUrl)}">${escapeHtml(log.path)}</span>
+    <span class="log-status ${log.responseStatus < 400 ? 'ok' : 'err'}">${log.responseStatus || '\u2014'}</span>
+    <span class="log-duration">${log.durationMs}ms</span>
+    <span style="font-size:.78em;opacity:.5">\u25BC</span>
+  </div>
+  <div class="log-body" data-id="${log.id}">
+    <div class="log-section">
+      <div class="log-section-title">\u23F0 Timestamp</div>
+      <div style="font-size:.82em;opacity:.8">${new Date(log.timestamp).toLocaleString()}</div>
+    </div>
+    <div class="log-section">
+      <div class="log-section-title">\u{1F310} Full URL</div>
+      <pre class="log-code">${escapeHtml(log.fullUrl)}</pre>
+    </div>
+    <div class="log-section">
+      <div class="log-section-title">\u{1F4E4} Request Headers <button class="log-copy-btn" onclick="copyText('${escapeHtml(JSON.stringify(log.requestHeaders, null, 2))}')">Copy</button></div>
+      <pre class="log-code">${escapeHtml(JSON.stringify(log.requestHeaders, null, 2))}</pre>
+    </div>
+    ${log.requestBody ? `
+    <div class="log-section">
+      <div class="log-section-title">\u{1F4E4} Request Body <button class="log-copy-btn" onclick="copyText('${escapeHtml(log.requestBody).replace(/'/g, "\\'")}')">Copy</button></div>
+      <pre class="log-code">${escapeHtml(log.requestBody)}</pre>
+    </div>` : ''}
+    <div class="log-section">
+      <div class="log-section-title">\u{1F4E5} Response (${log.responseStatus})${log.error ? ' \u26A0 ' + escapeHtml(log.error) : ''} <button class="log-copy-btn" onclick="copyText('${escapeHtml(log.responseBody).replace(/'/g, "\\'")}')">Copy</button></div>
+      <pre class="log-code">${escapeHtml(log.responseBody)}</pre>
+    </div>
+    <div class="log-section">
+      <div class="log-section-title">\u23F1 Duration</div>
+      <div style="font-size:.82em;opacity:.8">${log.durationMs}ms</div>
+    </div>
+  </div>
+</div>`).join("\n")
+    : `<div class="log-empty">
+  <div class="log-empty-icon">\u{1F4E1}</div>
+  <div class="log-empty-text">No requests logged yet.</div>
+  <div style="font-size:.82em;opacity:.6;margin-top:8px">${loggingEnabled ? 'Make some API calls to see them here.' : 'Enable "corellm.enableRequestLogging" in settings to start logging.'}</div>
+</div>`
+}
+
+<div class="footer">
+  <span>CoreLLM \u00B7 ${logs.length} request(s)</span>
+  <span>${loggingEnabled ? 'Logging: ON' : 'Logging: OFF'}</span>
+</div>
+<script>
+(function() {
+  const vscode = acquireVsCodeApi();
+  const themes = ['vscode', 'light', 'dark', 'hc'];
+  let currentThemeIdx = themes.indexOf('${theme}');
+  if (currentThemeIdx < 0) currentThemeIdx = 0;
+
+  document.getElementById('themeBtn').addEventListener('click', function() {
+    currentThemeIdx = (currentThemeIdx + 1) % themes.length;
+    vscode.postMessage({ type: 'setTheme', theme: themes[currentThemeIdx] });
+  });
+  document.getElementById('refreshBtn').addEventListener('click', function() {
+    vscode.postMessage({ type: 'refresh' });
+  });
+  document.getElementById('clearBtn').addEventListener('click', function() {
+    if (confirm('Clear all request logs?')) {
+      vscode.postMessage({ type: 'clear' });
+    }
+  });
+
+  // Toggle log entry expansion
+  document.querySelectorAll('.log-header').forEach(function(hdr) {
+    hdr.addEventListener('click', function() {
+      const id = this.dataset.id;
+      const body = document.querySelector('.log-body[data-id="' + id + '"]');
+      if (body) body.classList.toggle('open');
+      const arrow = this.querySelector('span:last-child');
+      if (arrow) arrow.textContent = body && body.classList.contains('open') ? '\u25B2' : '\u25BC';
+    });
+  });
+
+  // Collapse all
+  document.getElementById('collapseAll').addEventListener('click', function() {
+    document.querySelectorAll('.log-body').forEach(function(b) { b.classList.remove('open'); });
+    document.querySelectorAll('.log-header span:last-child').forEach(function(s) {
+      if (s.textContent === '\u25B2') s.textContent = '\u25BC';
+    });
+  });
+
+  // Copy text helper
+  window.copyText = function(text) {
+    vscode.postMessage({ type: 'copyRequest', text: text });
+  };
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'r' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); document.getElementById('refreshBtn').click(); }
+    if (e.key === 'Escape') { vscode.postMessage({ type: 'close' }); }
+  });
+})();
+</script>
+</body>
+</html>`;
+}
+
 // ─── Status Bar Manager ──────────────────────────────────────────────────────
 
 class BalanceStatusBarManager {
@@ -1219,6 +1396,7 @@ class BalanceStatusBarManager {
   private providerSpendPanel: vscode.WebviewPanel | undefined;
   private userManagerPanel: vscode.WebviewPanel | undefined;
   private unifiedDashboardPanel: vscode.WebviewPanel | undefined;
+  private requestLogsPanel: vscode.WebviewPanel | undefined;
 
   // ── Display Cycling ──────────────────────────────────────────────────
   private displayCycleIndex = 0;
@@ -1353,6 +1531,9 @@ class BalanceStatusBarManager {
       ),
       vscode.commands.registerCommand("corellm.showUnifiedDashboard", () =>
         this.openUnifiedDashboard(),
+      ),
+      vscode.commands.registerCommand("corellm.showRequestLogs", () =>
+        this.openRequestLogs(),
       ),
 
       // ── Credential Management (SecretStorage) ──────────────────────
@@ -2555,6 +2736,7 @@ class BalanceStatusBarManager {
     if (this.providerSpendPanel) this.refreshProviderSpendPanel();
     if (this.userManagerPanel) this.refreshUserManagerPanel();
     if (this.unifiedDashboardPanel) this.refreshUnifiedDashboard();
+    if (this.requestLogsPanel) this.refreshRequestLogsPanel();
   }
 
   // ── Health Dashboard Panel ──────────────────────────────────────────────
@@ -2816,6 +2998,41 @@ class BalanceStatusBarManager {
     const csv = rows.map((r) => r.map((c) => csvCell(c)).join(",")).join("\n");
     const doc = await vscode.workspace.openTextDocument({ content: csv, language: "csv" });
     await vscode.window.showTextDocument(doc);
+  }
+
+  // ── Request Logs Panel ─────────────────────────────────────────────────
+
+  private async openRequestLogs(): Promise<void> {
+    if (this.requestLogsPanel) {
+      this.requestLogsPanel.reveal(vscode.ViewColumn.Beside);
+      return;
+    }
+    this.requestLogsPanel = vscode.window.createWebviewPanel(
+      "corellmRequestLogs",
+      "CoreLLM Request Logs",
+      vscode.ViewColumn.Beside,
+      { enableScripts: true },
+    );
+    this.requestLogsPanel.onDidDispose(() => { this.requestLogsPanel = undefined; });
+    this.requestLogsPanel.webview.onDidReceiveMessage((msg) => {
+      switch (msg.type) {
+        case "refresh": this.refreshRequestLogsPanel(); break;
+        case "clear": CoreLLMApiClient.clearRequestLogs(); this.refreshRequestLogsPanel(); break;
+        case "setTheme": this.activeTheme = msg.theme; this.refreshAllPanels(); break;
+        case "cancel": case "close": this.requestLogsPanel?.dispose(); break;
+        case "copyRequest":
+          vscode.env.clipboard.writeText(msg.text || "");
+          vscode.window.showInformationMessage("Request text copied to clipboard.");
+          break;
+      }
+    });
+    this.refreshRequestLogsPanel();
+  }
+
+  private refreshRequestLogsPanel(): void {
+    if (!this.requestLogsPanel) return;
+    const logs = CoreLLMApiClient.getRequestLogs();
+    this.requestLogsPanel.webview.html = buildRequestLogsHtml(logs, this.activeTheme, this.config.enableRequestLogging);
   }
 
   // ── Spend Alert Check ───────────────────────────────────────────────────
@@ -3297,7 +3514,7 @@ let updateTimer: NodeJS.Timeout | undefined;
 
 const EXTENSION_ID = "litellm-tools.corellm";
 const GITHUB_REPO = "core-innovation/litellm-balance-checker";
-const CURRENT_VERSION = "0.8.4";
+const CURRENT_VERSION = "0.8.6";
 const LAST_NOTIFIED_KEY = "corellm.lastNotifiedVersion";
 const LAST_SEEN_VERSION_KEY = "corellm.lastSeenVersion";
 
