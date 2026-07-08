@@ -2,6 +2,12 @@
 
 All notable changes to the CoreLLM VS Code extension.
 
+## 0.8.10
+
+- **Docs:** Comprehensive README rewrite — better organization, quick start guide, FAQ, contributing section, security highlights, badges, architecture diagram
+- **Marketplace:** Enhanced `package.json` metadata — improved description, keywords, gallery banner, homepage, bug tracker, categories (Data Science + Visualization), badges, pricing
+- **License:** Updated copyright year and entity
+
 ## 0.8.9
 
 - **Security:** Redact sensitive headers (Authorization, API keys, cookies) from Request Logs to prevent credential exposure

@@ -1,22 +1,62 @@
 {
   "name": "corellm",
   "displayName": "CoreLLM",
-  "description": "Monitor LiteLLM API key balances, budgets, and usage directly from VS Code status bar",
-  "version": "0.8.9",
+  "description": "Monitor LiteLLM proxy balances, budgets, and usage — status bar spend tracking, rich dashboards, key health, team budgets, model pricing, CSV/PDF export",
+  "version": "0.8.10",
   "publisher": "CoreInnovation",
   "icon": "docs/logo.png",
   "license": "MIT",
+  "homepage": "https://github.com/core-innovation/litellm-balance-checker#readme",
   "repository": {
     "type": "git",
     "url": "https://github.com/core-innovation/litellm-balance-checker.git"
+  },
+  "bugs": {
+    "url": "https://github.com/core-innovation/litellm-balance-checker/issues"
   },
   "engines": {
     "vscode": "^1.85.0",
     "node": ">=18"
   },
   "categories": [
+    "Data Science",
+    "Visualization",
     "Other"
   ],
+  "keywords": [
+    "litellm",
+    "llm",
+    "api",
+    "balance",
+    "budget",
+    "spend",
+    "monitoring",
+    "dashboard",
+    "openai",
+    "anthropic",
+    "proxy",
+    "keys",
+    "teams",
+    "cost-tracking"
+  ],
+  "galleryBanner": {
+    "color": "#0d1117",
+    "theme": "dark"
+  },
+  "badges": [
+    {
+      "url": "https://img.shields.io/badge/license-MIT-green",
+      "href": "https://github.com/core-innovation/litellm-balance-checker/blob/main/LICENSE",
+      "description": "MIT License"
+    },
+    {
+      "url": "https://img.shields.io/badge/vscode-%5E1.85.0-blue?logo=visualstudiocode",
+      "href": "https://code.visualstudio.com/",
+      "description": "VS Code ^1.85.0"
+    }
+  ],
+  "pricing": "Free",
+  "qna": "https://github.com/core-innovation/litellm-balance-checker/discussions",
   "activationEvents": [
     "onStartupFinished"
   ],
