@@ -2,7 +2,7 @@
   "name": "corellm",
   "displayName": "CoreLLM",
   "description": "Monitor LiteLLM proxy balances, budgets, and usage — status bar spend tracking, rich dashboards, key health, team budgets, model pricing, CSV/PDF export",
-  "version": "0.8.11",
+  "version": "0.8.13",
   "publisher": "CoreInnovation",
   "icon": "docs/logo.png",
   "license": "MIT",
@@ -200,65 +200,194 @@
     "configuration": {
       "title": "CoreLLM",
       "properties": {
+        "corellm.endpoint": {
+          "type": "string",
+          "default": "http://localhost:4000",
+          "order": 10,
+          "markdownDescription": "The LiteLLM proxy base URL. Include the scheme (http/https) and port if non-standard.\n\nExamples:\n- `http://localhost:4000` (local dev)\n- `https://llm-proxy.example.com` (production)"
+        },
         "corellm.apiKey": {
           "type": "string",
           "default": "",
           "editPresentation": "password",
-          "description": "Your LiteLLM API key to check balance for. If empty, the Authorization header will use the key being queried."
+          "order": 20,
+          "markdownDescription": "Your LiteLLM API key — the key whose balance you want to monitor. Used as the `Authorization: Bearer` header.\n\nLeave empty if using **Username + Password** login instead."
         },
         "corellm.adminKey": {
           "type": "string",
           "default": "",
           "editPresentation": "password",
-          "description": "Admin/proxy master key (if required) for querying key info. Leave empty if using the same key as apiKey."
+          "order": 30,
+          "markdownDescription": "LiteLLM proxy master key (admin). Required to query other keys, list all keys, and access admin-only endpoints.\n\n**Auth priority:** login-derived key → adminKey → apiKey."
         },
         "corellm.username": {
           "type": "string",
           "default": "",
-          "description": "LiteLLM UI username (for login-based auth, used together with password). The extension will login and extract the embedded API key from the session."
+          "order": 40,
+          "markdownDescription": "LiteLLM UI username for login-based authentication. When set together with **Password**, the extension calls `/login`, extracts the session key, and uses it for all subsequent requests.\n\nThis is the preferred auth method for LiteLLM UI deployments."
         },
         "corellm.password": {
           "type": "string",
           "default": "",
           "editPresentation": "password",
-          "description": "LiteLLM UI password (for login-based auth)."
+          "order": 50,
+          "description": "LiteLLM UI password for login-based authentication. Used together with Username."
         },
-        "corellm.endpoint": {
+        "corellm.keyToQuery": {
           "type": "string",
-          "default": "http://localhost:4000",
-          "description": "The LiteLLM proxy endpoint URL (e.g., http://localhost:4000)"
+          "default": "",
+          "order": 60,
+          "markdownDescription": "A specific API key ID to query balance and spend for — can be different from the key used for authentication.\n\nUse this when you want to monitor a **different key** than the one you're authenticated with. Leave empty to monitor your own key."
+        },
+        "corellm.teamFilter": {
+          "type": "string",
+          "default": "",
+          "order": 70,
+          "markdownDescription": "Limit all panels and data to a single team ID. When set, only spend, budgets, and keys belonging to this team are shown.\n\nLeave empty to see all teams (requires admin privileges)."
         },
         "corellm.refreshInterval": {
           "type": "number",
           "default": 60,
           "minimum": 5,
-          "description": "Auto-refresh interval in seconds (minimum 5). Set to 0 to disable auto-refresh."
+          "order": 80,
+          "markdownDescription": "How often (in seconds) CoreLLM polls the LiteLLM API for updated balance and spend data.\n\n- Minimum: 5 seconds\n- Default: 60 seconds\n- Set to `0` to **disable auto-refresh** completely (manual refresh only via the refresh command or clicking the status bar)."
+        },
+        "corellm.cacheResults": {
+          "type": "boolean",
+          "default": true,
+          "order": 90,
+          "markdownDescription": "Cache API responses in memory for the duration of the polling interval. Reduces network requests and speeds up panel switching.\n\nDisable if you need real-time data on every interaction."
+        },
+        "corellm.statusBarDisplayMode": {
+          "type": "string",
+          "default": "cycle",
+          "order": 100,
+          "enum": [
+            "cycle",
+            "remaining",
+            "spend",
+            "usage-bar",
+            "budget"
+          ],
+          "enumDescriptions": [
+            "Cycle through all modes on each click",
+            "Remaining budget (max_budget − spend)",
+            "Total spend so far",
+            "Usage % with an ASCII progress bar: [████░░░░] 65%",
+            "Total max budget cap"
+          ],
+          "markdownDescription": "What information to show in the VS Code status bar.\n\nClick the status bar item or use **CoreLLM: Cycle Status Bar Display** to rotate through modes at any time."
+        },
+        "corellm.compactStatusBar": {
+          "type": "boolean",
+          "default": false,
+          "order": 110,
+          "markdownDescription": "Use a minimal status bar display showing only the dollar amount (e.g., `$4.32`). Saves status bar space.\n\nWhen disabled, the full label is shown (e.g., `$(credit-card) my-key: $4.32 / $100.00`)."
         },
         "corellm.showKeyAlias": {
           "type": "boolean",
           "default": true,
-          "description": "Show the key alias/name in the status bar next to the balance"
+          "order": 120,
+          "description": "Include the key alias or key name alongside the balance in the status bar."
         },
         "corellm.showSpendLogs": {
           "type": "boolean",
           "default": false,
-          "description": "Also display recent spend in the status bar (uses /spend/logs)"
+          "order": 130,
+          "markdownDescription": "Fetch and display recent individual spend entries in the status bar tooltip (from `/spend/logs`).\n\nEnable this to see per-request costs directly from the status bar hover."
         },
-        "corellm.budgetWarningThreshold": {
-          "type": "number",
-          "default": 20,
-          "minimum": 0,
-          "maximum": 100,
-          "description": "Warning threshold percentage. When remaining budget falls below this % of max_budget, show a warning."
+        "corellm.showTeamSpend": {
+          "type": "boolean",
+          "default": false,
+          "order": 140,
+          "description": "Append team-level spend breakdown to the status bar tooltip."
         },
-        "corellm.keyToQuery": {
+        "corellm.showGlobalSpend": {
+          "type": "boolean",
+          "default": false,
+          "order": 150,
+          "description": "Append global (proxy-wide) spend totals to the status bar tooltip."
+        },
+        "corellm.enableTreeView": {
+          "type": "boolean",
+          "default": true,
+          "order": 160,
+          "markdownDescription": "Show the CoreLLM Monitor in the VS Code sidebar. Provides quick-access buttons for all commands.\n\nDisable if you prefer using only the status bar and command palette."
+        },
+        "corellm.treeViewAutoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "order": 170,
+          "description": "Keep the sidebar tree view data in sync with the polling interval."
+        },
+        "corellm.defaultPanelTab": {
           "type": "string",
-          "default": "",
-          "description": "Optional: Query a specific key (different from the auth key). If empty, queries the key used for authentication."
+          "default": "overview",
+          "order": 200,
+          "enum": [
+            "overview",
+            "global",
+            "teams",
+            "activity"
+          ],
+          "enumDescriptions": [
+            "Budget Overview — key balance, spend charts, budget gauge",
+            "Global Spend — proxy-wide spend aggregates",
+            "Teams — per-team budgets and usage",
+            "Activity — recent request activity feed"
+          ],
+          "description": "Which tab opens first when launching a dashboard panel."
+        },
+        "corellm.webviewTheme": {
+          "type": "string",
+          "default": "vscode",
+          "order": 210,
+          "enum": [
+            "vscode",
+            "light",
+            "dark",
+            "hc"
+          ],
+          "enumDescriptions": [
+            "Follow VS Code theme (recommended)",
+            "Force light theme",
+            "Force dark theme",
+            "High-contrast accessibility theme"
+          ],
+          "description": "Color theme for all CoreLLM webview panels. 'vscode' automatically matches your editor theme."
+        },
+        "corellm.showModelSpend": {
+          "type": "boolean",
+          "default": false,
+          "order": 220,
+          "description": "Show per-model cost breakdown (gpt-4, claude-3, etc.) inside dashboard panels."
+        },
+        "corellm.enableProviderBreakdown": {
+          "type": "boolean",
+          "default": true,
+          "order": 230,
+          "description": "Show per-provider spend breakdown (OpenAI, Anthropic, Google, etc.) in dashboard views."
+        },
+        "corellm.dateFormat": {
+          "type": "string",
+          "default": "relative",
+          "order": 240,
+          "enum": [
+            "relative",
+            "absolute",
+            "iso"
+          ],
+          "enumDescriptions": [
+            "Relative: \"2m ago\", \"3h ago\", \"yesterday\"",
+            "Absolute: \"Jan 15, 2026, 2:30 PM\"",
+            "ISO 8601: \"2026-01-15T14:30:00Z\""
+          ],
+          "description": "How dates and timestamps are displayed inside webview panels."
         },
         "corellm.reportDuration": {
           "type": "string",
           "default": "7d",
+          "order": 300,
           "enum": [
             "1h",
             "24h",
@@ -269,201 +398,110 @@
           "enumDescriptions": [
             "Last hour",
             "Last 24 hours",
-            "Last 7 days",
+            "Last 7 days (default)",
             "Last 30 days",
-            "Custom range (set dates below)"
+            "Custom date range (set start/end below)"
           ],
-          "description": "Time range for the Budget Overview spend report."
+          "markdownDescription": "Default time window for spend reports, charts, and budget overviews.\n\nYou can temporarily override this with the **CoreLLM: Set Report Duration** command."
         },
         "corellm.reportCustomStart": {
           "type": "string",
           "default": "",
-          "description": "Custom start date (YYYY-MM-DD) for the spend report when reportDuration=custom."
+          "order": 310,
+          "description": "Custom report start date in YYYY-MM-DD format. Only used when reportDuration is set to 'custom'."
         },
         "corellm.reportCustomEnd": {
           "type": "string",
           "default": "",
-          "description": "Custom end date (YYYY-MM-DD) for the spend report when reportDuration=custom."
+          "order": 320,
+          "description": "Custom report end date in YYYY-MM-DD format. Only used when reportDuration is set to 'custom'."
         },
-        "corellm.webviewTheme": {
-          "type": "string",
-          "default": "vscode",
-          "enum": [
-            "vscode",
-            "light",
-            "dark",
-            "hc"
-          ],
-          "enumDescriptions": [
-            "Follow VS Code theme",
-            "Light theme override",
-            "Dark theme override",
-            "High-contrast theme override"
-          ],
-          "description": "Theme override for CoreLLM webview panels. Choose 'vscode' to follow your VS Code theme."
-        },
-        "corellm.showTeamSpend": {
+        "corellm.enableHealthMonitoring": {
           "type": "boolean",
           "default": false,
-          "description": "Show team-level spend breakdown in the status bar"
-        },
-        "corellm.showGlobalSpend": {
-          "type": "boolean",
-          "default": false,
-          "description": "Show global spend totals in the status bar"
-        },
-        "corellm.showModelSpend": {
-          "type": "boolean",
-          "default": false,
-          "description": "Show per-model spend breakdown in panel views"
-        },
-        "corellm.cacheResults": {
-          "type": "boolean",
-          "default": true,
-          "description": "Cache API results to reduce network requests (cache refreshes on each poll)"
-        },
-        "corellm.spendAlertThreshold": {
-          "type": "number",
-          "default": 0,
-          "minimum": 0,
-          "description": "Alert threshold in USD. Show a notification when any single spend entry exceeds this amount. Set to 0 to disable."
-        },
-        "corellm.enableActivityMonitoring": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable proxy activity monitoring (additional API calls to /global/activity endpoints)"
-        },
-        "corellm.teamFilter": {
-          "type": "string",
-          "default": "",
-          "description": "Optional: Filter by specific team ID. When set, only data for this team is shown."
-        },
-        "corellm.defaultPanelTab": {
-          "type": "string",
-          "default": "overview",
-          "enum": [
-            "overview",
-            "global",
-            "teams",
-            "activity"
-          ],
-          "enumDescriptions": [
-            "Budget Overview (default)",
-            "Global Spend",
-            "Teams",
-            "Activity"
-          ],
-          "description": "Default tab to show when opening panels"
-        },
-        "corellm.statusBarDisplayMode": {
-          "type": "string",
-          "default": "cycle",
-          "enum": [
-            "cycle",
-            "remaining",
-            "spend",
-            "usage-bar",
-            "budget"
-          ],
-          "enumDescriptions": [
-            "Cycle through all modes on click",
-            "Show remaining budget",
-            "Show total spend",
-            "Show usage percentage with ASCII bar",
-            "Show max budget"
-          ],
-          "description": "Default status bar display mode"
+          "order": 400,
+          "markdownDescription": "Continuously monitor proxy health by polling `/health` endpoints. Detects unhealthy model deployments and shows them in the **Health Dashboard**.\n\nEnable this if you want proactive alerts when models go down."
         },
         "corellm.healthCheckInterval": {
           "type": "number",
           "default": 300,
           "minimum": 30,
-          "description": "Health check polling interval in seconds (minimum 30). Used for the Health Dashboard."
-        },
-        "corellm.enableHealthMonitoring": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable continuous proxy health monitoring. Shows alerts when endpoints go unhealthy."
+          "order": 410,
+          "markdownDescription": "How often (in seconds) to check proxy health. Only relevant when **Enable Health Monitoring** is on.\n\n- Minimum: 30 seconds\n- Default: 300 seconds (5 minutes)"
         },
         "corellm.healthAlertOnUnhealthy": {
           "type": "boolean",
           "default": true,
-          "description": "Show a VS Code notification when any model endpoint becomes unhealthy."
+          "order": 420,
+          "markdownDescription": "Show a VS Code popup notification when any model endpoint transitions to **unhealthy**. The notification includes the model name and endpoint URL."
+        },
+        "corellm.enableActivityMonitoring": {
+          "type": "boolean",
+          "default": false,
+          "order": 430,
+          "markdownDescription": "Fetch proxy-wide activity data from `/global/activity` endpoints. Adds request counts, model usage, and exception tracking to the Activity panel.\n\n⚠️ May increase API load on the proxy."
         },
         "corellm.enableSpendForecast": {
           "type": "boolean",
           "default": true,
-          "description": "Show projected 30-day spend forecast in the Dashboard based on recent usage patterns."
+          "order": 440,
+          "markdownDescription": "Project future spend in the Unified Dashboard based on your recent usage patterns. Uses a linear projection over the lookback window.\n\nDisable if you only want to see historical data."
         },
         "corellm.forecastDays": {
           "type": "number",
           "default": 7,
           "minimum": 1,
           "maximum": 90,
-          "description": "Number of recent days to use for spend forecasting."
+          "order": 450,
+          "markdownDescription": "Number of recent days to use as the basis for spend forecasting. A longer window smooths out daily spikes; a shorter window is more responsive to recent changes.\n\n- 1 day: very sensitive to today's usage\n- 7 days: balanced (default)\n- 30 days: stable, long-term trend"
         },
-        "corellm.enableBudgetAlerts": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show VS Code notifications when budget thresholds are crossed."
+        "corellm.budgetWarningThreshold": {
+          "type": "number",
+          "default": 20,
+          "minimum": 0,
+          "maximum": 100,
+          "order": 500,
+          "markdownDescription": "**Remaining budget** warning threshold (percentage of `max_budget`).\n\nWhen the key's remaining budget falls below this percent, the status bar turns orange/yellow.\n\nExample: with `max_budget = $100` and threshold `20`, you get a warning when you have less than $20 left.\n\nSet to `0` to disable this warning."
         },
         "corellm.budgetAlertThreshold": {
           "type": "number",
           "default": 80,
           "minimum": 1,
           "maximum": 100,
-          "description": "Budget usage percentage threshold for alerts."
+          "order": 510,
+          "markdownDescription": "**Budget usage** alert threshold (percentage of `max_budget` consumed).\n\nWhen the key has spent more than this percent of its budget, a VS Code notification fires. This is the **spend-side** counterpart to `budgetWarningThreshold` (which is remaining-side).\n\nExample: `max_budget = $100`, threshold `80` → alert when you've spent $80+.\n\nOnly active when `enableBudgetAlerts` is on."
+        },
+        "corellm.enableBudgetAlerts": {
+          "type": "boolean",
+          "default": true,
+          "order": 520,
+          "description": "Show VS Code popup notifications when any key's budget usage exceeds the budgetAlertThreshold."
+        },
+        "corellm.spendAlertThreshold": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "order": 530,
+          "markdownDescription": "**Per-request** spend alert in USD. When any single API call costs more than this amount, a VS Code notification fires.\n\nUseful for catching accidental expensive requests (e.g., a single call that costs $5+).\n\nSet to `0` to disable."
         },
         "corellm.enableDailySpendAlert": {
           "type": "boolean",
           "default": false,
-          "description": "Alert when daily spend exceeds a configured threshold."
+          "order": 540,
+          "description": "Show a VS Code notification when today's total spend exceeds the daily spend threshold."
         },
         "corellm.dailySpendAlertThreshold": {
           "type": "number",
           "default": 10,
           "minimum": 0,
-          "description": "Daily spend threshold in USD. Alert when daily spend exceeds this amount."
-        },
-        "corellm.enableProviderBreakdown": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show per-provider spend breakdowns (OpenAI, Anthropic, etc.) in panels."
-        },
-        "corellm.compactStatusBar": {
-          "type": "boolean",
-          "default": false,
-          "description": "Use a compact status bar display showing only the spend amount."
-        },
-        "corellm.dateFormat": {
-          "type": "string",
-          "default": "relative",
-          "enum": [
-            "relative",
-            "absolute",
-            "iso"
-          ],
-          "enumDescriptions": [
-            "Relative time (e.g., 2m ago, 3h ago)",
-            "Absolute date/time",
-            "ISO 8601 format"
-          ],
-          "description": "Date/time display format in webview panels."
-        },
-        "corellm.enableTreeView": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show CoreLLM in the VS Code sidebar as a tree view for quick access."
-        },
-        "corellm.treeViewAutoRefresh": {
-          "type": "boolean",
-          "default": true,
-          "description": "Auto-refresh the sidebar tree view data."
+          "order": 550,
+          "markdownDescription": "Daily spend alert limit in USD. When today's total spend exceeds this amount, a notification fires.\n\nOnly active when `enableDailySpendAlert` is on. Set to `0` to disable."
         },
         "corellm.enableRequestLogging": {
           "type": "boolean",
           "default": false,
-          "description": "Log raw HTTP request/response text for debugging. View them via the 'CoreLLM: Show Request Logs' command."
+          "order": 600,
+          "markdownDescription": "Log raw HTTP request and response bodies for debugging. View captured logs with the **CoreLLM: Show Request Logs** command.\n\n⚠️ May contain API keys and sensitive data. Disable in production."
         }
       }
     }

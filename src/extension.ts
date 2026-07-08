@@ -3636,10 +3636,7 @@ class BalanceStatusBarManager {
 
 let manager: BalanceStatusBarManager | undefined;
 
-// ─── Update Checker ─────────────────────────────────────────────────────────
-
-const EXTENSION_ID = "litellm-tools.corellm";
-const CURRENT_VERSION = "0.8.11";
+const CURRENT_VERSION = "0.8.13";
 const LAST_SEEN_VERSION_KEY = "corellm.lastSeenVersion";
 
 // ─── Activation ──────────────────────────────────────────────────────────────

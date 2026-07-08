@@ -1,6 +1,19 @@
 # Changelog
 
 All notable changes to the CoreLLM VS Code extension.
+## 0.8.13
+
+- **Improved:** All settings now logically grouped with VS Code's `order` property — Auth & Connection, Status Bar, Dashboards, Monitoring, Alerts, Advanced
+- **Improved:** Every setting description rewritten to be more meaningful — includes usage examples, edge cases, and cross-references to related settings
+- **Improved:** `markdownDescription` used for complex settings with bullet points, code formatting, and examples
+- **Fixed:** Confusing `budgetWarningThreshold` vs `budgetAlertThreshold` — descriptions now clearly distinguish remaining-based vs usage-based thresholds
+- **Fixed:** `spendAlertThreshold` description now clarifies it's per-request, not cumulative
+## 0.8.13
+
+- **Removed:** GitHub-based update check mechanism (`checkForUpdates`, release/tag polling, `updateCheckInterval` setting) — updates now delivered through the VS Code Marketplace
+- **Removed:** `CoreLLM: Check for Updates` command
+- **Removed:** `corellm.updateCheckInterval` configuration setting
+- **Updated:** FAQ and tutorial reflect Marketplace-based updates
 
 ## 0.8.11
 

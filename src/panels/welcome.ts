@@ -1,6 +1,6 @@
 import { COMMON_CSS, buildThemeOverrides, materialIcon } from "../helpers";
 
-const CURRENT_VERSION = "0.8.11";
+const CURRENT_VERSION = "0.8.13";
 
 export function buildWelcomeHtml(activeTheme?: string): string {
   const theme = activeTheme || "vscode";
